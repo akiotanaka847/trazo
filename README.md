@@ -45,7 +45,7 @@ Los pull requests también se compilan, para comprobarlos, pero nunca publican i
 
 Los instaladores no llevan firma de desarrollador:
 
-- **macOS:** la primera vez abre Trazo con clic derecho → Abrir, o en Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente.
+- **macOS:** abre el `.dmg` y arrastra **Trazo** a **Aplicaciones**. Al abrir Trazo, macOS avisará que no puede verificarlo: pulsa **OK**. Luego, en **Ajustes del Sistema → Privacidad y seguridad**, baja hasta el aviso de Trazo y pulsa **Abrir igualmente**.
 - **Windows:** si SmartScreen avisa, Más información → Ejecutar de todas formas.
 
 ## Desarrollo
