@@ -1,18 +1,19 @@
-export type Tool = "pointer" | "pen" | "highlighter" | "laser" | "shape" | "eraser";
+export type Tool = "pointer" | "pen" | "highlighter" | "laser" | "shape" | "number" | "eraser";
 export type DrawTool = Exclude<Tool, "pointer">;
 export type ShapeKind = "arrow" | "rect" | "ellipse" | "line";
 export type SizeIndex = 0 | 1 | 2;
 
-export const TOOLS: readonly Tool[] = ["pointer", "pen", "highlighter", "laser", "shape", "eraser"];
+export const TOOLS: readonly Tool[] = ["pointer", "pen", "highlighter", "laser", "shape", "number", "eraser"];
 export const SHAPES: readonly ShapeKind[] = ["arrow", "rect", "ellipse", "line"];
 export const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#1c1c1e", "#ffffff"] as const;
 
-/** Stroke width in CSS pixels for the thin / medium / thick setting of each tool. */
+/** Stroke width in CSS pixels for the thin / medium / thick setting of each tool (badge diameter for numbers). */
 const WIDTHS: Record<DrawTool, readonly [number, number, number]> = {
   pen: [3, 6, 12],
   highlighter: [16, 26, 40],
   laser: [6, 9, 14],
   shape: [3, 5, 9],
+  number: [20, 26, 34],
   eraser: [16, 32, 64],
 };
 
@@ -23,6 +24,8 @@ export interface ToolState {
   color: string;
   size: SizeIndex;
   inkHidden: boolean;
+  /** What the next numbered badge will say. */
+  nextNumber: number;
 }
 
 export const isDrawTool = (tool: Tool): tool is DrawTool => tool !== "pointer";
@@ -33,4 +36,21 @@ export const isInkTool = (tool: Tool): tool is InkTool => isDrawTool(tool) && to
 
 export function widthOf(tool: Tool, size: SizeIndex): number {
   return WIDTHS[isDrawTool(tool) ? tool : "pen"][size];
+}
+
+/**
+ * The number the next badge gets: one above the highest badge on any screen. Undoing the
+ * last badge gives its number back; erasing one in the middle never makes a number repeat.
+ */
+export function nextBadgeNumber(onScreen: Iterable<number>): number {
+  let highest = 0;
+  for (const n of onScreen) highest = Math.max(highest, n);
+  return highest + 1;
+}
+
+/** Near-black or white, whichever reads better on top of `hex` (e.g. a yellow badge). */
+export function textOn(hex: string): string {
+  const v = parseInt(hex.slice(1), 16);
+  const luma = (0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) / 255;
+  return luma > 0.62 ? "#1c1c1e" : "#ffffff";
 }

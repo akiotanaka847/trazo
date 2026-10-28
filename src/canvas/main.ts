@@ -13,11 +13,11 @@ import {
   type CanvasCommand,
   type CanvasStatus,
 } from "../shared/protocol";
-import { COLORS, widthOf, type ToolState } from "../shared/tools";
+import { COLORS, nextBadgeNumber, widthOf, type ToolState } from "../shared/tools";
 import { cursorFor } from "./cursor";
 import { Drawing } from "./history";
 import { LaserTrail } from "./laser";
-import { buildInk, buildShape, drawStroke, hits, type Point, type Sample, type Stroke } from "./strokes";
+import { buildBadge, buildInk, buildShape, drawStroke, hits, type Point, type Sample, type Stroke } from "./strokes";
 
 const win = getCurrentWebviewWindow();
 const label = win.label;
@@ -29,14 +29,15 @@ const liveCanvas = document.getElementById("live") as HTMLCanvasElement;
 const ink = inkCanvas.getContext("2d")!;
 const live = liveCanvas.getContext("2d")!;
 
-let tools: ToolState = { tool: "pointer", shape: "arrow", color: COLORS[0], size: 1, inkHidden: false };
+let tools: ToolState = { tool: "pointer", shape: "arrow", color: COLORS[0], size: 1, inkHidden: false, nextNumber: 1 };
 const drawing = new Drawing();
 const laser = new LaserTrail();
 
 type Gesture =
   | { kind: "ink"; tool: "pen" | "highlighter"; samples: Sample[]; pressure: boolean }
   | { kind: "shape"; from: Point; to: Point; shift: boolean }
-  | { kind: "erase"; last: Point; hit: Set<Stroke> };
+  | { kind: "erase"; last: Point; hit: Set<Stroke> }
+  | { kind: "badge"; at: Point };
 let gesture: Gesture | null = null;
 
 const width = () => widthOf(tools.tool, tools.size);
@@ -80,6 +81,7 @@ function shapeEnd(g: Extract<Gesture, { kind: "shape" }>): Point {
 function strokeFor(g: Gesture, done: boolean): Stroke | null {
   if (g.kind === "ink") return buildInk(g.tool, tools.color, width(), g.samples, g.pressure, done);
   if (g.kind === "shape") return buildShape(tools.shape, tools.color, width(), g.from, shapeEnd(g));
+  if (g.kind === "badge") return buildBadge(badgeNumber(), tools.color, width(), g.at);
   return null;
 }
 
@@ -100,8 +102,20 @@ function paintLive(now: number): void {
 
 // ── Reporting to the toolbar ─────────────────────────────────────────────────
 
+const numbersOnScreen = () => drawing.strokes.flatMap((s) => (s.kind === "badge" ? [s.number] : []));
+
+/**
+ * The toolbar's count runs across every screen; the local check covers a second click
+ * landing before the toolbar's update does, so two badges never share a number.
+ */
+const badgeNumber = () => Math.max(tools.nextNumber, nextBadgeNumber(numbersOnScreen()));
+
 function report(): void {
-  void emitTo<CanvasStatus>(TOOLBAR_LABEL, CANVAS_STATUS, { label, strokes: drawing.strokes.length });
+  void emitTo<CanvasStatus>(TOOLBAR_LABEL, CANVAS_STATUS, {
+    label,
+    strokes: drawing.strokes.length,
+    highestNumber: nextBadgeNumber(numbersOnScreen()) - 1,
+  });
 }
 
 function recorded(): void {
@@ -170,6 +184,9 @@ liveCanvas.addEventListener("pointerdown", (e) => {
     gesture = { kind: "ink", tool: tools.tool, samples: [[p.x, p.y, pressureOf(e)]], pressure: e.pointerType === "pen" };
   } else if (tools.tool === "shape") {
     gesture = { kind: "shape", from: p, to: p, shift: e.shiftKey };
+  } else if (tools.tool === "number") {
+    // Follows the pointer until release, so it can be nudged into place.
+    gesture = { kind: "badge", at: p };
   }
   requestFrame();
 });
@@ -187,6 +204,8 @@ liveCanvas.addEventListener("pointermove", (e) => {
   } else if (g.kind === "shape") {
     g.to = pointOf(e);
     g.shift = e.shiftKey;
+  } else if (g.kind === "badge") {
+    g.at = pointOf(e);
   } else {
     for (const s of samplesOf(e)) {
       const p = pointOf(s);

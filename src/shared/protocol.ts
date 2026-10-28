@@ -18,6 +18,8 @@ export const REQUEST = "request"; // Action from a key pressed while the canvas 
 export interface CanvasStatus {
   label: string;
   strokes: number;
+  /** Highest numbered badge on that screen, 0 when there are none. */
+  highestNumber: number;
 }
 
 // Rust → toolbar

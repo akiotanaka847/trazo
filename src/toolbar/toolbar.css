@@ -231,3 +231,19 @@ button.variants::after {
     transition: none !important;
   }
 }
+
+/* Numbers tool: the badge the next click will drop, in the current color. */
+.num {
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--ink-text, #fff);
+  font: 600 11px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+}

@@ -1,5 +1,5 @@
 import { getStroke, type StrokeOptions } from "perfect-freehand";
-import type { ShapeKind } from "../shared/tools";
+import { textOn, type ShapeKind } from "../shared/tools";
 
 export interface Point {
   x: number;
@@ -36,7 +36,14 @@ export interface ShapeStroke extends Base {
   head: Path2D | null;
 }
 
-export type Stroke = InkStroke | ShapeStroke;
+/** A numbered badge (1, 2, 3…) centered where it was dropped; `width` is its diameter. */
+export interface BadgeStroke extends Base {
+  kind: "badge";
+  number: number;
+  center: Point;
+}
+
+export type Stroke = InkStroke | ShapeStroke | BadgeStroke;
 
 const HIGHLIGHTER_ALPHA = 0.38;
 
@@ -156,10 +163,44 @@ export function buildShape(shape: ShapeKind, color: string, width: number, from:
   return { kind: "shape", color, width, path, head, box };
 }
 
+export function buildBadge(number: number, color: string, diameter: number, center: Point): BadgeStroke {
+  const r = diameter / 2 + 2; // the white halo sits outside the colored disc
+  const box = { minX: center.x - r, minY: center.y - r, maxX: center.x + r, maxY: center.y + r };
+  return { kind: "badge", number, color, width: diameter, center, box };
+}
+
+function drawBadge(ctx: CanvasRenderingContext2D, s: BadgeStroke): void {
+  const { x, y } = s.center;
+  const r = s.width / 2;
+  const disc = (radius: number) => {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+  };
+  // A white halo and a faint dark hairline keep any color readable on any background.
+  disc(r + 2);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+  ctx.stroke();
+  disc(r);
+  ctx.fillStyle = s.color;
+  ctx.fill();
+  const label = String(s.number);
+  const scale = label.length === 1 ? 1.15 : label.length === 2 ? 0.95 : 0.72;
+  ctx.font = `600 ${Math.round(r * scale)}px -apple-system, "Segoe UI", system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = textOn(s.color);
+  ctx.fillText(label, x, y + r * 0.07);
+}
+
 export function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   ctx.save();
   ctx.fillStyle = s.color;
-  if (s.kind === "ink") {
+  if (s.kind === "badge") {
+    drawBadge(ctx, s);
+  } else if (s.kind === "ink") {
     if (s.tool === "highlighter") ctx.globalAlpha = HIGHLIGHTER_ALPHA;
     ctx.fill(s.outline);
   } else {
@@ -186,6 +227,9 @@ export function hits(s: Stroke, p: Point, radius: number): boolean {
   const b = s.box;
   if (p.x < b.minX - radius || p.x > b.maxX + radius || p.y < b.minY - radius || p.y > b.maxY + radius) {
     return false;
+  }
+  if (s.kind === "badge") {
+    return Math.hypot(p.x - s.center.x, p.y - s.center.y) <= s.width / 2 + 2 + radius;
   }
   probe.lineCap = "round";
   probe.lineJoin = "round";

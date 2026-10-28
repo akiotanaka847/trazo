@@ -19,7 +19,16 @@ import {
   type CanvasCommand,
   type CanvasStatus,
 } from "../shared/protocol";
-import { COLORS, SHAPES, isDrawTool, isInkTool, type SizeIndex, type Tool, type ToolState } from "../shared/tools";
+import {
+  COLORS,
+  SHAPES,
+  isDrawTool,
+  isInkTool,
+  nextBadgeNumber,
+  type SizeIndex,
+  type Tool,
+  type ToolState,
+} from "../shared/tools";
 import {
   centerOf,
   glide,
@@ -50,6 +59,8 @@ let visible = false;
 const undoStack: string[] = [];
 const redoStack: string[] = [];
 const strokeCounts = new Map<string, number>();
+/** Highest numbered badge on each canvas: numbering runs across every screen. */
+const highestNumbers = new Map<string, number>();
 
 const view = new ToolbarView(bar, {
   pickTool,
@@ -96,6 +107,12 @@ function pickTool(tool: Tool): void {
   } else {
     setTools({ tool });
   }
+}
+
+/** Placing, undoing, erasing or clearing a badge on any screen moves the shared count. */
+function syncNextNumber(): void {
+  const next = nextBadgeNumber(highestNumbers.values());
+  if (next !== state.tools.nextNumber) setTools({ nextNumber: next });
 }
 
 function toggleDraw(): void {
@@ -348,10 +365,14 @@ void win.listen<string>(HISTORY_PUSH, ({ payload: label }) => {
 });
 void win.listen<CanvasStatus>(CANVAS_STATUS, ({ payload }) => {
   strokeCounts.set(payload.label, payload.strokes);
+  highestNumbers.set(payload.label, payload.highestNumber);
+  syncNextNumber();
   render();
 });
 void win.listen<string>(CANVAS_CLOSED, ({ payload: label }) => {
   strokeCounts.delete(label);
+  highestNumbers.delete(label);
+  syncNextNumber();
   for (const stack of [undoStack, redoStack]) {
     for (let i = stack.length - 1; i >= 0; i--) if (stack[i] === label) stack.splice(i, 1);
   }

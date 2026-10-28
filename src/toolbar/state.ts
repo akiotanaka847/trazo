@@ -20,7 +20,7 @@ export interface Saved {
 const KEY = "trazo:v1";
 
 const defaults = (): Saved => ({
-  tools: { tool: "pointer", shape: "arrow", color: COLORS[0], size: 1, inkHidden: false },
+  tools: { tool: "pointer", shape: "arrow", color: COLORS[0], size: 1, inkHidden: false, nextNumber: 1 },
   lastDrawTool: "pen",
   layout: { orientation: "vertical", edge: "right", x: null, y: null, collapsed: false, hideFromCapture: false },
 });
@@ -33,7 +33,8 @@ export function load(): Saved {
     const saved = JSON.parse(raw) as Partial<Saved>;
     return {
       // Always start in pointer mode with ink visible: never come back covering the screen.
-      tools: { ...base.tools, ...saved.tools, tool: "pointer", inkHidden: false },
+      // Drawings don't survive a restart, so numbering starts over at 1.
+      tools: { ...base.tools, ...saved.tools, tool: "pointer", inkHidden: false, nextNumber: 1 },
       lastDrawTool: saved.lastDrawTool && isInkTool(saved.lastDrawTool) ? saved.lastDrawTool : base.lastDrawTool,
       layout: { ...base.layout, ...saved.layout },
     };

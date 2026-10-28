@@ -11,6 +11,7 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 | Lápiz y resaltador | Trazos suaves que se afinan con la velocidad; presión real con tableta o lápiz digital |
 | Puntero láser | Estela brillante que sigue al ratón y se desvanece sola; nunca queda como tinta |
 | Formas | Flecha, rectángulo, elipse y línea (clic otra vez en Formas para cambiar). Mayús: ángulos de 15°, cuadrados y círculos |
+| Números | Cada clic pone el siguiente: 1, 2, 3… con el color y el tamaño elegidos. El botón muestra qué número sigue; deshacer lo devuelve y borrar todo vuelve a 1 |
 | Borrador | Quita trazos completos; el borrador trasero de un lápiz digital también borra |
 | Modo puntero | Los trazos quedan a la vista y los clics pasan a las apps de abajo |
 | Varios monitores | Un lienzo por pantalla; deshacer sigue el orden real entre pantallas |
@@ -23,7 +24,7 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 |---|---|
 | ⌃⌥D (Ctrl+Alt+D en Windows) | Dibujar / soltar, desde cualquier app |
 | Esc | Volver al modo puntero |
-| V · P · H · L · E | Puntero · lápiz · resaltador · láser · borrador |
+| V · P · H · L · N · E | Puntero · lápiz · resaltador · láser · números · borrador |
 | A · R · O · S | Flecha · rectángulo · elipse · siguiente forma |
 | 1 a 6 | Rojo, amarillo, verde, azul, negro, blanco |
 | [ · ] | Más fino · más grueso |

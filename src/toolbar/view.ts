@@ -19,7 +19,7 @@ import {
 } from "lucide";
 import { t } from "../shared/i18n";
 import { CLEAR_KEY, SHAPE_KEYS, TOOL_KEYS, UNDO_KEY } from "../shared/keys";
-import { COLORS, TOOLS, type InkTool, type ShapeKind, type Tool, type ToolState } from "../shared/tools";
+import { COLORS, TOOLS, textOn, type InkTool, type ShapeKind, type Tool, type ToolState } from "../shared/tools";
 import type { Layout } from "./state";
 
 export interface ViewState {
@@ -41,7 +41,8 @@ export interface ViewHandlers {
   handleDown(e: PointerEvent): void;
 }
 
-const TOOL_ICONS: Record<Exclude<Tool, "shape">, IconNode> = {
+/** The numbers tool has no icon: its button shows the badge the next click will drop. */
+const TOOL_ICONS: Record<Exclude<Tool, "shape" | "number">, IconNode> = {
   pointer: MousePointer2,
   pen: Pen,
   highlighter: Highlighter,
@@ -58,7 +59,8 @@ const DOT_SIZES = [4, 7, 11];
 /** Tools that lay down colored ink, so they show the current color under their icon. */
 const INKED: ReadonlySet<Tool> = new Set(["pen", "highlighter", "laser", "shape"]);
 
-const iconFor = (tool: Tool, shape: ShapeKind) => (tool === "shape" ? SHAPE_ICONS[shape] : TOOL_ICONS[tool]);
+const iconFor = (tool: Exclude<Tool, "number">, shape: ShapeKind) =>
+  tool === "shape" ? SHAPE_ICONS[shape] : TOOL_ICONS[tool];
 
 function icon(node: IconNode): SVGElement {
   return createElement(node, { "aria-hidden": "true" });
@@ -75,6 +77,7 @@ function button(className: string, label: string, onClick?: () => void): HTMLBut
 }
 
 function toolLabel(tool: Tool, shape: ShapeKind): string {
+  if (tool === "number") return `${t.number} (${TOOL_KEYS.number}) · ${t.numberHint}`;
   if (tool !== "shape") return `${t[tool]} (${TOOL_KEYS[tool]})`;
   const key = SHAPE_KEYS[shape];
   return `${t[shape]}${key ? ` (${key})` : ""} · ${t.shapeHint} (${TOOL_KEYS.shape})`;
@@ -113,8 +116,26 @@ export class ToolbarView {
   private setIcon(b: HTMLButtonElement, node: IconNode): void {
     if (this.icons.get(b) === node) return;
     this.icons.set(b, node);
-    b.querySelector("svg")?.remove();
+    b.querySelector("svg, .num")?.remove();
     b.prepend(icon(node));
+  }
+
+  private setBadge(b: HTMLButtonElement, n: number): void {
+    this.icons.delete(b);
+    b.querySelector("svg")?.remove();
+    let badge = b.querySelector<HTMLElement>(".num");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "num";
+      b.prepend(badge);
+    }
+    badge.textContent = String(n);
+  }
+
+  /** Icon for most tools; the live next-number badge for the numbers tool. */
+  private paintTool(b: HTMLButtonElement, tool: Tool, s: ViewState): void {
+    if (tool === "number") this.setBadge(b, s.tools.nextNumber);
+    else this.setIcon(b, iconFor(tool, s.tools.shape));
   }
 
   private separator(): HTMLElement {
@@ -187,16 +208,17 @@ export class ToolbarView {
   private patch(s: ViewState): void {
     const { tool, shape, color, size } = s.tools;
     this.root.style.setProperty("--ink", color);
+    this.root.style.setProperty("--ink-text", textOn(color));
 
     if (this.toggle) {
       const shown = tool === "pointer" ? s.lastDrawTool : tool;
-      this.setIcon(this.toggle, iconFor(shown, shape));
+      this.paintTool(this.toggle, shown, s);
       this.toggle.classList.toggle("active", tool !== "pointer");
       this.toggle.classList.toggle("inked", INKED.has(shown));
     }
 
     for (const [name, b] of this.tools) {
-      this.setIcon(b, iconFor(name, shape));
+      this.paintTool(b, name, s);
       b.classList.toggle("active", name === tool);
       b.classList.toggle("inked", name === tool && INKED.has(name));
       b.title = toolLabel(name, shape);

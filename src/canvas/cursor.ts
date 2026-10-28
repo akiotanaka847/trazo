@@ -40,6 +40,7 @@ export function cursorFor(tools: ToolState): string {
     case "laser":
       return "none"; // the laser dot is the cursor
     case "shape":
+    case "number":
       return "crosshair";
     case "eraser":
       return ring(width);
