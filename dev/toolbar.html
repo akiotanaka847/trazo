@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Trazo</title>
+  </head>
+  <body>
+    <div id="bar" class="bar" role="toolbar" aria-label="Trazo"></div>
+    <script type="module">
+      import { fakeTauri } from "./fake-tauri.ts";
+      fakeTauri("toolbar");
+      await import("../src/toolbar/main.ts");
+      // No native HUD blur in a browser: preview the opaque surface Windows uses.
+      document.documentElement.classList.remove("mac");
+    </script>
+  </body>
+</html>

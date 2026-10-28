@@ -1,0 +1,40 @@
+[package]
+name = "trazo"
+version = "0.1.0"
+description = "Dibuja y anota sobre cualquier pantalla"
+authors = ["Akio Tanaka"]
+license = "MIT"
+edition = "2024"
+
+[lib]
+# El sufijo `_lib` evita que el nombre de la lib choque con el binario en Windows
+# (https://github.com/rust-lang/cargo/issues/8519).
+name = "trazo_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sys-locale = "0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["block2", "NSNotification", "NSOperation", "NSString"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "canvas",
+  "description": "One transparent drawing surface per monitor.",
+  "windows": ["canvas_*"],
+  "permissions": ["core:default"]
+}

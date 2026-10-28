@@ -1,0 +1,23 @@
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Touch screens: every finger movement is ink, never a scroll or a zoom. */
+  touch-action: none;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.ink-hidden #ink {
+  visibility: hidden;
+}

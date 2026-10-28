@@ -1,0 +1,233 @@
+:root {
+  color-scheme: dark;
+  --fg: rgba(255, 255, 255, 0.82);
+  --fg-dim: rgba(255, 255, 255, 0.42);
+  --hover: rgba(255, 255, 255, 0.09);
+  --pressed: rgba(255, 255, 255, 0.14);
+  --active: rgba(255, 255, 255, 0.17);
+  --sep: rgba(255, 255, 255, 0.13);
+  --ring: rgba(255, 255, 255, 0.95);
+  --gap-ring: #1d1d20;
+  --surface: rgba(30, 30, 33, 0.96);
+  --edge: rgba(255, 255, 255, 0.09);
+  --btn: 32px;
+  --cell: 16px;
+  --radius: 12px;
+  --ink: #ff3b30;
+}
+
+/* macOS draws a native HUD blur behind the page; just tint it. */
+:root.mac {
+  --surface: rgba(24, 24, 27, 0.34);
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: max-content;
+  height: max-content;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.bar.vertical {
+  flex-direction: column;
+}
+
+.group {
+  display: flex;
+  gap: 2px;
+}
+
+.vertical .group {
+  flex-direction: column;
+}
+
+button {
+  all: unset;
+  position: relative;
+  box-sizing: border-box;
+  width: var(--btn);
+  height: var(--btn);
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--fg);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease,
+    transform 90ms ease;
+}
+
+button:hover {
+  background: var(--hover);
+}
+
+button:active {
+  background: var(--pressed);
+  transform: scale(0.92);
+}
+
+button:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+button svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9;
+}
+
+button.active {
+  background: var(--active);
+  color: #fff;
+}
+
+/* The current ink color, as a little tip under the active drawing tool. */
+button.inked::before {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 10px;
+  height: 2.5px;
+  margin-left: -5px;
+  border-radius: 2px;
+  background: var(--ink);
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.45);
+}
+
+/* Shapes has variants: click it again to cycle. */
+button.variants::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  border-left: 4px solid transparent;
+  border-bottom: 4px solid currentColor;
+  opacity: 0.5;
+}
+
+.handle {
+  color: var(--fg-dim);
+  cursor: grab;
+}
+
+.vertical .handle {
+  height: 16px;
+}
+
+.horizontal .handle {
+  width: 16px;
+}
+
+.handle:active,
+.bar.dragging,
+.bar.dragging * {
+  cursor: grabbing;
+  transform: none;
+}
+
+.handle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sep {
+  flex: none;
+  background: var(--sep);
+}
+
+.vertical .sep {
+  width: 18px;
+  height: 1px;
+  margin: 3px 0;
+}
+
+.horizontal .sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+}
+
+.colors {
+  display: grid;
+  grid-template-columns: repeat(2, var(--cell));
+  grid-auto-rows: var(--cell);
+}
+
+.horizontal .colors {
+  grid-template-columns: repeat(3, var(--cell));
+}
+
+.swatch {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 50%;
+}
+
+.swatch::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  transition:
+    width 120ms ease,
+    height 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.swatch:hover {
+  background: transparent;
+}
+
+.swatch:hover::before {
+  width: 13px;
+  height: 13px;
+}
+
+.swatch.selected::before {
+  width: 8px;
+  height: 8px;
+  box-shadow:
+    0 0 0 2px var(--gap-ring),
+    0 0 0 3.5px var(--ring);
+}
+
+.size span {
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+  transition:
+    width 120ms ease,
+    height 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

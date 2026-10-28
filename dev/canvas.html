@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Trazo</title>
+  </head>
+  <body>
+    <canvas id="ink"></canvas>
+    <canvas id="live"></canvas>
+    <script type="module">
+      import { fakeTauri } from "./fake-tauri.ts";
+      fakeTauri("canvas_preview");
+      await import("../src/canvas/main.ts");
+    </script>
+  </body>
+</html>
