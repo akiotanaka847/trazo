@@ -34,12 +34,14 @@ Las teclas de herramienta funcionan mientras dibujas. El icono de la barra de me
 
 ## Instaladores
 
-Cada cambio en `main` compila Trazo en GitHub Actions. En la pestaña **Actions**, abre la última ejecución de **build** y baja sus artefactos:
+Cada cambio en `main` compila Trazo en GitHub Actions y publica los instaladores como artefactos. En la pestaña **Actions**, filtra por la rama `main`, abre la última ejecución de **build** y baja sus artefactos:
 
 | Artefacto | Contenido |
 |---|---|
 | `trazo-macos` | `.dmg` universal (Apple Silicon e Intel) |
 | `trazo-windows` | Instalador `.msi` y `-setup.exe` |
+
+Los pull requests también se compilan, para comprobarlos, pero nunca publican instaladores: solo el código que llegó a `main` termina en algo descargable. Las actions del workflow están fijadas a un commit exacto (SHA), así que nadie puede cambiar en silencio lo que arma los instaladores.
 
 Los instaladores no llevan firma de desarrollador:
 
