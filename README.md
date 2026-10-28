@@ -8,7 +8,7 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 |---|---|
 | Barra acoplable | Vertical a la derecha por defecto. Arrástrala por el asa a donde quieras; ⋯ → Posición la pega a cualquier borde (vertical en los laterales, horizontal arriba y abajo) |
 | Barra contraíble | Un clic en el asa la reduce a un botón de "dibujar / soltar" |
-| Lápiz y resaltador | Trazos suaves con [perfect-freehand]; presión real con tableta o lápiz |
+| Lápiz y resaltador | Trazos suaves que se afinan con la velocidad; presión real con tableta o lápiz digital |
 | Puntero láser | Estela brillante que sigue al ratón y se desvanece sola; nunca queda como tinta |
 | Formas | Flecha, rectángulo, elipse y línea (clic otra vez en Formas para cambiar). Mayús: ángulos de 15°, cuadrados y círculos |
 | Borrador | Quita trazos completos; el borrador trasero de un lápiz digital también borra |
@@ -81,12 +81,6 @@ cargo check --manifest-path src-tauri/Cargo.toml
 | [Diseño](implementation/trazo-diseno.md) | Cada decisión técnica y el fallo que evita |
 | [Cambios](CHANGELOG.md) | Historial de versiones |
 
-## Dependencias
-
-[Tauri](https://tauri.app) (MIT/Apache-2.0), [perfect-freehand] (MIT) y [Lucide](https://lucide.dev) (ISC).
-
 ## Licencia
 
 MIT. Ver [LICENSE](LICENSE).
-
-[perfect-freehand]: https://github.com/steveruizok/perfect-freehand
