@@ -1,8 +1,16 @@
 import type { Stroke } from "./strokes";
 
+/** A stroke that took a new color, and the one it had. */
+export interface Recolor {
+  stroke: Stroke;
+  from: string;
+  to: string;
+}
+
 type Entry =
   | { type: "add"; stroke: Stroke }
-  | { type: "remove"; removed: { stroke: Stroke; index: number }[] };
+  | { type: "remove"; removed: { stroke: Stroke; index: number }[] }
+  | { type: "recolor"; changes: Recolor[] };
 
 /** The strokes on one canvas plus their undo/redo history. */
 export class Drawing {
@@ -24,6 +32,15 @@ export class Drawing {
     if (removed.length === 0) return false;
     this.apply({ type: "remove", removed });
     this.record({ type: "remove", removed });
+    return true;
+  }
+
+  /** Recolors strokes as a single undoable step (one recolor gesture, already painted live). */
+  recolor(changes: Recolor[]): boolean {
+    const real = changes.filter((c) => c.from !== c.to);
+    if (real.length === 0) return false;
+    this.apply({ type: "recolor", changes: real });
+    this.record({ type: "recolor", changes: real });
     return true;
   }
 
@@ -54,20 +71,33 @@ export class Drawing {
   }
 
   private apply(entry: Entry): void {
-    if (entry.type === "add") {
-      this.strokes.push(entry.stroke);
-    } else {
-      const gone = new Set(entry.removed.map((r) => r.stroke));
-      this.strokes = this.strokes.filter((s) => !gone.has(s));
+    switch (entry.type) {
+      case "add":
+        this.strokes.push(entry.stroke);
+        break;
+      case "remove": {
+        const gone = new Set(entry.removed.map((r) => r.stroke));
+        this.strokes = this.strokes.filter((s) => !gone.has(s));
+        break;
+      }
+      case "recolor":
+        for (const c of entry.changes) c.stroke.color = c.to;
+        break;
     }
   }
 
   private revert(entry: Entry): void {
-    if (entry.type === "add") {
-      this.strokes = this.strokes.filter((s) => s !== entry.stroke);
-    } else {
-      // Ascending order puts every stroke back at its original depth.
-      for (const { stroke, index } of entry.removed) this.strokes.splice(index, 0, stroke);
+    switch (entry.type) {
+      case "add":
+        this.strokes = this.strokes.filter((s) => s !== entry.stroke);
+        break;
+      case "remove":
+        // Ascending order puts every stroke back at its original depth.
+        for (const { stroke, index } of entry.removed) this.strokes.splice(index, 0, stroke);
+        break;
+      case "recolor":
+        for (const c of entry.changes) c.stroke.color = c.from;
+        break;
     }
   }
 }

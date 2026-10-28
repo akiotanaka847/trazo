@@ -19,15 +19,15 @@ function tip(diameter: number, color: string, opacity: number): string {
   return svgCursor(svg, size, "crosshair");
 }
 
-/** The eraser: a ring as wide as what it will erase. */
-function ring(diameter: number): string {
+/** The eraser (white) and recolor (current color) brushes: a ring as wide as what it will touch. */
+function ring(diameter: number, color = "#fff"): string {
   const size = Math.ceil(diameter + 4);
   const c = size / 2;
   const r = diameter / 2;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
-    `<circle cx="${c}" cy="${c}" r="${r}" fill="#fff" fill-opacity=".12" stroke="#000" stroke-opacity=".5" stroke-width="3"/>` +
-    `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#fff" stroke-width="1.5"/>` +
+    `<circle cx="${c}" cy="${c}" r="${r}" fill="${color}" fill-opacity=".12" stroke="#000" stroke-opacity=".5" stroke-width="3"/>` +
+    `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${color}" stroke-width="1.5"/>` +
     `</svg>`;
   return svgCursor(svg, size, "cell");
 }
@@ -44,6 +44,8 @@ export function cursorFor(tools: ToolState): string {
       return "crosshair";
     case "eraser":
       return ring(width);
+    case "recolor":
+      return ring(width, tools.color);
     case "highlighter":
       return tip(Math.min(width, 32), tools.color, 0.45);
     case "pen":

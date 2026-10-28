@@ -79,6 +79,34 @@ export function placeOnEdge(edge: Edge, anchor: Point, size: Size, area: Rect, m
 }
 
 /**
+ * Where a panel of `size` opens beside the toolbar `bar`: on the side that faces the middle
+ * of the screen (left of a bar on the right edge, below one at the top), centered on the
+ * `anchor` button that opened it, and always fully inside the work area.
+ */
+export function placeBeside(
+  bar: Rect,
+  anchor: Rect,
+  orientation: Orientation,
+  size: Size,
+  area: Rect,
+  gap: number,
+): Rect {
+  const b = centerOf(bar);
+  const a = centerOf(anchor);
+  const middle = centerOf(area);
+  const minX = area.x + gap;
+  const minY = area.y + gap;
+  const maxX = area.x + area.width - size.width - gap;
+  const maxY = area.y + area.height - size.height - gap;
+  if (orientation === "vertical") {
+    const x = b.x > middle.x ? bar.x - gap - size.width : bar.x + bar.width + gap;
+    return { x: clamp(x, minX, maxX), y: clamp(a.y - size.height / 2, minY, maxY), ...size };
+  }
+  const y = b.y > middle.y ? bar.y - gap - size.height : bar.y + bar.height + gap;
+  return { x: clamp(a.x - size.width / 2, minX, maxX), y: clamp(y, minY, maxY), ...size };
+}
+
+/**
  * Decides where the toolbar lands when the user lets go of it after dragging it.
  *
  * @param drop        the toolbar's rectangle at the moment it was released

@@ -69,3 +69,27 @@ Orientación, contraer y expandir son solo CSS. Un `ResizeObserver` mide la barr
 "Más opciones" abre un menú del sistema, no un panel HTML.
 
 **Evita:** un panel HTML no puede salir de la ventana diminuta de la barra; agrandar la ventana para mostrarlo volvería a bloquear clics detrás.
+
+## El panel de color es una tercera ventana
+
+El selector de color (editar una muestra o elegir "otro color") vive en su propia ventana, creada oculta al arrancar junto a la barra, con el mismo nivel, el mismo desenfoque y sin foco. Se coloca sola del lado de la barra que mira al centro de la pantalla, centrada en el botón que la abrió. La barra sigue siendo la dueña del estado: el panel solo recibe un color y devuelve el que eliges.
+
+**Evita:** agrandar la ventana de la barra para mostrar el panel, que en macOS extendería el desenfoque a todo el rectángulo y bloquearía clics en el hueco. Como no toma el foco, el selector es solo de puntero (cuadro de saturación y brillo, tono y sugerencias): un campo de texto no recibiría teclas.
+
+## Se cierra como un menú
+
+El panel se cierra al tocar el lienzo, cambiar de herramienta, elegir otro color de la paleta, mover o contraer la barra, con su botón × o con Esc (el primer Esc cierra el panel; el segundo sale del modo dibujo).
+
+**Evita:** un panel olvidado junto a la barra mientras presentas. La barra no ve los clics fuera de sus ventanas, así que el lienzo avisa cuando empieza un gesto.
+
+## Recolorear cambia solo lo de encima
+
+En cada punto que toca el pincel de recolorear, cambia el trazo más alto bajo ese punto; un gesto entero es un solo paso de deshacer.
+
+**Evita:** que tocar una palabra escrita sobre un resaltado pinte también el resaltado. El borrador sí quita todo lo que toca: borrar es más fácil de predecir que repintar.
+
+## Las formas se despliegan en la barra
+
+Al elegir Formas, su botón se reemplaza por los cuatro botones de forma; al cambiar de herramienta se pliegan otra vez.
+
+**Evita:** buscar la forma a fuerza de clics repetidos, y un menú flotante que necesitaría otra ventana. La barra solo crece mientras usas formas.

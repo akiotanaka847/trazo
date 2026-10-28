@@ -32,6 +32,7 @@ pub fn run() {
             focus::init();
             overlay::sync(app.handle())?;
             overlay::create_toolbar(app.handle())?;
+            overlay::create_panel(app.handle())?;
             tray::create(app.handle())?;
             shortcuts::register_toggle(app.handle());
             Ok(())

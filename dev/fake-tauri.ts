@@ -34,6 +34,9 @@ export function fakeTauri(label: string): void {
         return toHost({ type: "trazo-frame", label, ...args });
       case "set_drawing":
         return toHost({ type: "trazo-drawing", active: args.active });
+      case "plugin:window|show":
+      case "plugin:window|hide":
+        return toHost({ type: "trazo-visible", label, visible: cmd === "plugin:window|show" });
       case "plugin:menu|new":
         return [Math.floor(Math.random() * 1e9), "preview"];
       default:

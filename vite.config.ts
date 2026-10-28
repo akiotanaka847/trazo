@@ -26,10 +26,10 @@ export default defineConfig(() => ({
       ignored: ["**/src-tauri/**"],
     },
   },
-  // Two pages, one per kind of window: the floating toolbar and the per-monitor canvas.
+  // One page per kind of window: the floating toolbar, the per-monitor canvas and the color panel.
   build: {
     rolldownOptions: {
-      input: { toolbar: "toolbar.html", canvas: "canvas.html" },
+      input: { toolbar: "toolbar.html", canvas: "canvas.html", panel: "panel.html" },
     },
   },
 }));

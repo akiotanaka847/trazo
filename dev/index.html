@@ -35,7 +35,8 @@
         background: transparent;
       }
       /* Same color-scheme as the page inside, or Chromium paints an opaque backdrop. */
-      #toolbar {
+      #toolbar,
+      #panel {
         color-scheme: dark;
       }
       #canvas {
@@ -54,6 +55,7 @@
     </div>
     <iframe id="canvas" src="./canvas.html" title="Lienzo"></iframe>
     <iframe id="toolbar" src="./toolbar.html" title="Barra"></iframe>
+    <iframe id="panel" src="./panel.html" title="Color" style="visibility: hidden"></iframe>
     <script type="module" src="./host.ts"></script>
   </body>
 </html>

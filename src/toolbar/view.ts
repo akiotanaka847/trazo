@@ -10,6 +10,7 @@ import {
   GripVertical,
   Highlighter,
   MousePointer2,
+  PaintBucket,
   Pen,
   Slash,
   Square,
@@ -19,12 +20,18 @@ import {
 } from "lucide";
 import { t } from "../shared/i18n";
 import { CLEAR_KEY, SHAPE_KEYS, TOOL_KEYS, UNDO_KEY } from "../shared/keys";
-import { COLORS, TOOLS, textOn, type InkTool, type ShapeKind, type Tool, type ToolState } from "../shared/tools";
+import { COLORS, SHAPES, TOOLS, textOn, type InkTool, type ShapeKind, type Tool, type ToolState } from "../shared/tools";
 import type { Layout } from "./state";
+
+/** What the color panel is editing: one of the six swatches, or a color outside the palette. */
+export type PanelTarget = { kind: "swatch"; index: number } | { kind: "custom" };
 
 export interface ViewState {
   tools: ToolState;
   lastDrawTool: InkTool;
+  palette: readonly string[];
+  customColor: string | null;
+  panel: PanelTarget | null;
   layout: Layout;
   canUndo: boolean;
   hasInk: boolean;
@@ -32,7 +39,10 @@ export interface ViewState {
 
 export interface ViewHandlers {
   pickTool(tool: Tool): void;
-  pickColor(color: string): void;
+  pickShape(shape: ShapeKind): void;
+  pickSwatch(index: number): void;
+  editSwatch(index: number, opener: HTMLElement): void;
+  pickCustom(opener: HTMLElement): void;
   cycleSize(): void;
   undo(): void;
   clear(): void;
@@ -47,6 +57,7 @@ const TOOL_ICONS: Record<Exclude<Tool, "shape" | "number">, IconNode> = {
   pen: Pen,
   highlighter: Highlighter,
   laser: CircleDot,
+  recolor: PaintBucket,
   eraser: Eraser,
 };
 const SHAPE_ICONS: Record<ShapeKind, IconNode> = {
@@ -56,8 +67,10 @@ const SHAPE_ICONS: Record<ShapeKind, IconNode> = {
   line: Slash,
 };
 const DOT_SIZES = [4, 7, 11];
-/** Tools that lay down colored ink, so they show the current color under their icon. */
-const INKED: ReadonlySet<Tool> = new Set(["pen", "highlighter", "laser", "shape"]);
+/** Tools that use the current color, so they show it under their icon. */
+const INKED: ReadonlySet<Tool> = new Set(["pen", "highlighter", "laser", "shape", "recolor"]);
+/** What a tool does when its icon alone can't say it. */
+const HINTS: Partial<Record<Tool, string>> = { shape: t.shapeHint, number: t.numberHint, recolor: t.recolorHint };
 
 const iconFor = (tool: Exclude<Tool, "number">, shape: ShapeKind) =>
   tool === "shape" ? SHAPE_ICONS[shape] : TOOL_ICONS[tool];
@@ -76,11 +89,20 @@ function button(className: string, label: string, onClick?: () => void): HTMLBut
   return b;
 }
 
-function toolLabel(tool: Tool, shape: ShapeKind): string {
-  if (tool === "number") return `${t.number} (${TOOL_KEYS.number}) · ${t.numberHint}`;
-  if (tool !== "shape") return `${t[tool]} (${TOOL_KEYS[tool]})`;
+function toolLabel(tool: Tool): string {
+  const hint = HINTS[tool];
+  return `${t[tool]} (${TOOL_KEYS[tool]})${hint ? ` · ${hint}` : ""}`;
+}
+
+function shapeLabel(shape: ShapeKind): string {
   const key = SHAPE_KEYS[shape];
-  return `${t[shape]}${key ? ` (${key})` : ""} · ${t.shapeHint} (${TOOL_KEYS.shape})`;
+  return `${t[shape]}${key ? ` (${key})` : ""}`;
+}
+
+/** A swatch keeps its color's name until you change it; then it's just "Color (3)". */
+function swatchLabel(palette: readonly string[], i: number): string {
+  const name = palette[i] === COLORS[i] ? t.colors[i] : t.color;
+  return `${name} (${i + 1}) · ${t.swatchHint}`;
 }
 
 /**
@@ -91,7 +113,10 @@ function toolLabel(tool: Tool, shape: ShapeKind): string {
 export class ToolbarView {
   private structure = "";
   private tools = new Map<Tool, HTMLButtonElement>();
+  private shapes = new Map<ShapeKind, HTMLButtonElement>();
+  private shapeTray?: HTMLElement;
   private swatches: HTMLButtonElement[] = [];
+  private custom?: HTMLButtonElement;
   private size?: HTMLButtonElement;
   private undo?: HTMLButtonElement;
   private clear?: HTMLButtonElement;
@@ -151,8 +176,10 @@ export class ToolbarView {
     this.root.className = `bar ${orientation}${collapsed ? " collapsed" : ""}`;
     this.root.replaceChildren();
     this.tools.clear();
+    this.shapes.clear();
     this.icons.clear();
     this.swatches = [];
+    this.shapeTray = this.custom = undefined;
 
     this.handle = button("handle", collapsed ? t.handleCollapsed : t.handle);
     this.handle.append(icon(vertical ? GripHorizontal : GripVertical));
@@ -171,16 +198,25 @@ export class ToolbarView {
       const b = button(tool === "shape" ? "tool variants" : "tool", "", () => this.on.pickTool(tool));
       this.tools.set(tool, b);
       tools.append(b);
+      if (tool === "shape") tools.append(this.buildShapeTray());
     }
 
     const colors = document.createElement("div");
     colors.className = "colors";
-    COLORS.forEach((color, i) => {
-      const b = button("swatch", `${t.colors[i]} (${i + 1})`, () => this.on.pickColor(color));
-      b.style.setProperty("--c", color);
+    COLORS.forEach((_, i) => {
+      const b = button("swatch", "", () => this.on.pickSwatch(i));
+      const edit = (e: Event) => {
+        e.preventDefault();
+        this.on.editSwatch(i, b);
+      };
+      b.addEventListener("dblclick", edit);
+      b.addEventListener("contextmenu", edit);
       this.swatches.push(b);
       colors.append(b);
     });
+    const custom = button("swatch custom", `${t.customColor} · ${t.customHint}`, () => this.on.pickCustom(custom));
+    this.custom = custom;
+    colors.append(custom);
 
     this.size = button("size", "", () => this.on.cycleSize());
     this.size.append(document.createElement("span"));
@@ -205,6 +241,22 @@ export class ToolbarView {
     );
   }
 
+  /** The four shapes, shown in place of the Shapes button while that tool is in use. */
+  private buildShapeTray(): HTMLElement {
+    const tray = document.createElement("div");
+    tray.className = "shapes";
+    tray.setAttribute("role", "group");
+    tray.setAttribute("aria-label", t.shape);
+    for (const shape of SHAPES) {
+      const b = button("tool", shapeLabel(shape), () => this.on.pickShape(shape));
+      this.setIcon(b, SHAPE_ICONS[shape]);
+      this.shapes.set(shape, b);
+      tray.append(b);
+    }
+    this.shapeTray = tray;
+    return tray;
+  }
+
   private patch(s: ViewState): void {
     const { tool, shape, color, size } = s.tools;
     this.root.style.setProperty("--ink", color);
@@ -221,16 +273,43 @@ export class ToolbarView {
       this.paintTool(b, name, s);
       b.classList.toggle("active", name === tool);
       b.classList.toggle("inked", name === tool && INKED.has(name));
-      b.title = toolLabel(name, shape);
+      b.title = toolLabel(name);
       b.setAttribute("aria-label", b.title);
       b.setAttribute("aria-pressed", String(name === tool));
     }
 
+    // Shapes unfold into their four variants while the tool is in use, and fold back after.
+    const unfolded = tool === "shape";
+    const shapesButton = this.tools.get("shape");
+    if (shapesButton) shapesButton.hidden = unfolded;
+    if (this.shapeTray) this.shapeTray.hidden = !unfolded;
+    for (const [name, b] of this.shapes) {
+      const current = unfolded && name === shape;
+      b.classList.toggle("active", current);
+      b.classList.toggle("inked", current);
+      b.setAttribute("aria-pressed", String(current));
+    }
+
     this.swatches.forEach((b, i) => {
-      const selected = COLORS[i] === color;
+      const selected = s.palette[i] === color;
+      b.style.setProperty("--c", s.palette[i]);
       b.classList.toggle("selected", selected);
+      b.title = swatchLabel(s.palette, i);
+      b.setAttribute("aria-label", b.title);
       b.setAttribute("aria-pressed", String(selected));
+      b.setAttribute("aria-expanded", String(s.panel?.kind === "swatch" && s.panel.index === i));
     });
+
+    // The rainbow swatch remembers the last color picked outside the palette.
+    if (this.custom) {
+      const selected = s.customColor === color && !s.palette.includes(color);
+      if (s.customColor) this.custom.style.setProperty("--c", s.customColor);
+      else this.custom.style.removeProperty("--c");
+      this.custom.classList.toggle("chosen", s.customColor !== null);
+      this.custom.classList.toggle("selected", selected);
+      this.custom.setAttribute("aria-pressed", String(selected));
+      this.custom.setAttribute("aria-expanded", String(s.panel?.kind === "custom"));
+    }
 
     if (this.size) {
       this.size.style.setProperty("--d", `${DOT_SIZES[size]}px`);

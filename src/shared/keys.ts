@@ -18,6 +18,7 @@ export const TOOL_KEYS: Record<Tool, string> = {
   laser: "L",
   shape: "S",
   number: "N",
+  recolor: "C",
   eraser: "E",
 };
 

@@ -6,6 +6,7 @@ import {
   CANVAS_COMMAND,
   CANVAS_READY,
   CANVAS_STATUS,
+  CANVAS_TOUCHED,
   HISTORY_PUSH,
   REQUEST,
   TOOLBAR_LABEL,
@@ -37,6 +38,7 @@ type Gesture =
   | { kind: "ink"; tool: "pen" | "highlighter"; samples: Sample[]; pressure: boolean }
   | { kind: "shape"; from: Point; to: Point; shift: boolean }
   | { kind: "erase"; last: Point; hit: Set<Stroke> }
+  | { kind: "recolor"; last: Point; before: Map<Stroke, string> }
   | { kind: "badge"; at: Point };
 let gesture: Gesture | null = null;
 
@@ -134,23 +136,49 @@ function samplesOf(e: PointerEvent): PointerEvent[] {
   return list && list.length > 0 ? list : [e];
 }
 
-/** Marks every stroke the eraser touches between two points (sampled so fast swipes count). */
+/** Points every `spacing` px from just past `from` to `to` (just `to` for a click), so fast swipes count. */
+function along(from: Point, to: Point, spacing: number): Point[] {
+  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / spacing));
+  return Array.from({ length: steps }, (_, i) => ({
+    x: from.x + ((to.x - from.x) * (i + 1)) / steps,
+    y: from.y + ((to.y - from.y) * (i + 1)) / steps,
+  }));
+}
+
+/** Marks every stroke the eraser touches between two points, however deep it sits. */
 function eraseAlong(g: Extract<Gesture, { kind: "erase" }>, from: Point, to: Point): void {
   const radius = widthOf("eraser", tools.size) / 2;
-  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / (radius / 2)));
+  const points = along(from, to, radius / 2);
   let touched = false;
   for (const s of drawing.strokes) {
-    if (g.hit.has(s)) continue;
-    for (let i = 1; i <= steps; i++) {
-      const p = { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
-      if (hits(s, p, radius)) {
-        g.hit.add(s);
-        touched = true;
-        break;
-      }
+    if (!g.hit.has(s) && points.some((p) => hits(s, p, radius))) {
+      g.hit.add(s);
+      touched = true;
     }
   }
   if (touched) repaint(g.hit);
+}
+
+/**
+ * Paints the strokes the brush passes over with the current color, live. Only the topmost
+ * stroke under each point changes: tapping pen ink drawn over a highlight recolors the ink.
+ */
+function recolorAlong(g: Extract<Gesture, { kind: "recolor" }>, from: Point, to: Point): void {
+  const radius = widthOf("recolor", tools.size) / 2;
+  let touched = false;
+  for (const p of along(from, to, radius / 2)) {
+    for (let i = drawing.strokes.length - 1; i >= 0; i--) {
+      const s = drawing.strokes[i];
+      if (!hits(s, p, radius)) continue;
+      if (s.color !== tools.color) {
+        if (!g.before.has(s)) g.before.set(s, s.color);
+        s.color = tools.color;
+        touched = true;
+      }
+      break;
+    }
+  }
+  if (touched) repaint();
 }
 
 function finish(): void {
@@ -159,6 +187,9 @@ function finish(): void {
   if (!g) return;
   if (g.kind === "erase") {
     if (drawing.remove(g.hit)) recorded();
+  } else if (g.kind === "recolor") {
+    const changes = [...g.before].map(([stroke, from]) => ({ stroke, from, to: stroke.color }));
+    if (drawing.recolor(changes)) recorded();
   } else {
     const tooSmall = g.kind === "shape" && Math.hypot(g.to.x - g.from.x, g.to.y - g.from.y) < 3;
     const stroke = strokeFor(g, true);
@@ -176,10 +207,14 @@ liveCanvas.addEventListener("pointerdown", (e) => {
   const stylusEraser = e.pointerType === "pen" && (e.button === 5 || (e.buttons & 32) !== 0);
   if (tools.tool === "pointer" || (e.button !== 0 && !stylusEraser)) return;
   liveCanvas.setPointerCapture(e.pointerId);
+  void emitTo(TOOLBAR_LABEL, CANVAS_TOUCHED, label);
   const p = pointOf(e);
   if (stylusEraser || tools.tool === "eraser") {
     gesture = { kind: "erase", last: p, hit: new Set() };
     eraseAlong(gesture, p, p);
+  } else if (tools.tool === "recolor") {
+    gesture = { kind: "recolor", last: p, before: new Map() };
+    recolorAlong(gesture, p, p);
   } else if (tools.tool === "pen" || tools.tool === "highlighter") {
     gesture = { kind: "ink", tool: tools.tool, samples: [[p.x, p.y, pressureOf(e)]], pressure: e.pointerType === "pen" };
   } else if (tools.tool === "shape") {
@@ -209,7 +244,8 @@ liveCanvas.addEventListener("pointermove", (e) => {
   } else {
     for (const s of samplesOf(e)) {
       const p = pointOf(s);
-      eraseAlong(g, g.last, p);
+      if (g.kind === "erase") eraseAlong(g, g.last, p);
+      else recolorAlong(g, g.last, p);
       g.last = p;
     }
   }

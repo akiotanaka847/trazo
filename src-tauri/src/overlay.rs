@@ -1,5 +1,5 @@
-//! The two kinds of windows Trazo floats over the desktop: one transparent canvas per
-//! monitor, and a single small toolbar that always stays above them.
+//! The windows Trazo floats over the desktop: one transparent canvas per monitor, a single
+//! small toolbar that always stays above them, and the color panel that opens beside it.
 
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,10 +8,12 @@ use tauri::{AppHandle, Emitter, Manager, Monitor, WebviewUrl, WebviewWindow, Web
 use crate::{focus, shortcuts};
 
 pub const TOOLBAR: &str = "toolbar";
+const PANEL: &str = "panel";
 const CANVAS_PREFIX: &str = "canvas_";
 
 /// macOS window levels. Canvases sit above the menu bar and the Dock (NSStatusWindowLevel);
-/// the toolbar sits one level higher so a focused canvas can never cover it.
+/// the toolbar and its color panel sit one level higher so a focused canvas can never cover
+/// them.
 #[cfg(target_os = "macos")]
 const CANVAS_LEVEL: isize = 25;
 #[cfg(target_os = "macos")]
@@ -137,11 +139,14 @@ pub fn sync(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-pub fn create_toolbar(app: &AppHandle) -> tauri::Result<()> {
-    let url = WebviewUrl::App("toolbar.html".into());
-    let builder = WebviewWindowBuilder::new(app, TOOLBAR, url)
+/// A small floating window above the canvases that never takes keyboard focus: the toolbar,
+/// or the color panel. It starts hidden; its page shows it once it has measured itself and
+/// moved into place.
+fn create_floating(app: &AppHandle, label: &str, page: &str, width: f64, height: f64) -> tauri::Result<()> {
+    let url = WebviewUrl::App(page.into());
+    let builder = WebviewWindowBuilder::new(app, label, url)
         .title("Trazo")
-        .inner_size(44.0, 320.0)
+        .inner_size(width, height)
         .decorations(false)
         .transparent(true)
         .resizable(false)
@@ -149,11 +154,10 @@ pub fn create_toolbar(app: &AppHandle) -> tauri::Result<()> {
         .always_on_top(true)
         .visible_on_all_workspaces(true)
         .accept_first_mouse(true)
-        // Clicking the toolbar must not pull keyboard focus away from the canvas (or, on
-        // Windows, from the presentation behind it).
+        // Clicking it must not pull keyboard focus away from the canvas (or, on Windows,
+        // from the presentation behind it).
         .focusable(false)
         .focused(false)
-        // The page shows it once it has measured itself and moved to its saved spot.
         .visible(false);
 
     #[cfg(target_os = "macos")]
@@ -178,6 +182,15 @@ pub fn create_toolbar(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     crate::macos::float_above_everything(&_window, TOOLBAR_LEVEL);
     Ok(())
+}
+
+pub fn create_toolbar(app: &AppHandle) -> tauri::Result<()> {
+    create_floating(app, TOOLBAR, "toolbar.html", 44.0, 320.0)
+}
+
+/// Created with the toolbar so it opens instantly; it stays hidden until a swatch asks for it.
+pub fn create_panel(app: &AppHandle) -> tauri::Result<()> {
+    create_floating(app, PANEL, "panel.html", 196.0, 210.0)
 }
 
 pub fn reveal_toolbar(app: &AppHandle) {

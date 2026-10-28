@@ -2,6 +2,7 @@ import "./toolbar.css";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, emitTo } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { t } from "../shared/i18n";
 import type { Action } from "../shared/keys";
 import { isMac, nativeScale } from "../shared/platform";
 import {
@@ -9,8 +10,14 @@ import {
   CANVAS_COMMAND,
   CANVAS_READY,
   CANVAS_STATUS,
+  CANVAS_TOUCHED,
   EXIT_DRAW,
   HISTORY_PUSH,
+  PANEL_CLOSE,
+  PANEL_DISMISSED,
+  PANEL_LABEL,
+  PANEL_OPEN,
+  PANEL_PICK,
   REQUEST,
   REVEAL,
   TOGGLE_DRAW,
@@ -18,11 +25,13 @@ import {
   TRAY,
   type CanvasCommand,
   type CanvasStatus,
+  type PanelOpen,
 } from "../shared/protocol";
 import {
   COLORS,
   SHAPES,
   isDrawTool,
+  isHexColor,
   isInkTool,
   nextBadgeNumber,
   type SizeIndex,
@@ -47,7 +56,7 @@ import {
 } from "./dock";
 import { openMoreMenu } from "./menu";
 import { load, save } from "./state";
-import { ToolbarView } from "./view";
+import { ToolbarView, type PanelTarget } from "./view";
 
 const win = getCurrentWebviewWindow();
 const bar = document.getElementById("bar")!;
@@ -61,10 +70,15 @@ const redoStack: string[] = [];
 const strokeCounts = new Map<string, number>();
 /** Highest numbered badge on each canvas: numbering runs across every screen. */
 const highestNumbers = new Map<string, number>();
+/** What the color panel beside the toolbar is editing, while it's open. */
+let panel: PanelTarget | null = null;
 
 const view = new ToolbarView(bar, {
   pickTool,
-  pickColor: (color) => setTools({ color }),
+  pickShape: (shape) => setTools({ tool: "shape", shape }),
+  pickSwatch,
+  editSwatch: (index, opener) => togglePanel({ kind: "swatch", index }, opener),
+  pickCustom: (opener) => togglePanel({ kind: "custom" }, opener),
   cycleSize: () => setTools({ size: ((state.tools.size + 1) % 3) as SizeIndex }),
   undo,
   clear,
@@ -77,6 +91,9 @@ function render(): void {
   view.render({
     tools: state.tools,
     lastDrawTool: state.lastDrawTool,
+    palette: state.palette,
+    customColor: state.customColor,
+    panel,
     layout: state.layout,
     canUndo: undoStack.length > 0,
     hasInk: [...strokeCounts.values()].some((n) => n > 0),
@@ -88,6 +105,8 @@ function render(): void {
 function setTools(patch: Partial<ToolState>): void {
   const before = state.tools;
   const next = { ...before, ...patch };
+  // Moving on to another tool means you're done choosing a color.
+  if (next.tool !== before.tool) closePanel();
   if (isInkTool(next.tool)) state.lastDrawTool = next.tool;
   // Picking a drawing tool brings hidden ink back: drawing blind is never what you want.
   if (isDrawTool(next.tool) && patch.tool) next.inkHidden = false;
@@ -109,6 +128,11 @@ function pickTool(tool: Tool): void {
   }
 }
 
+function pickSwatch(index: number): void {
+  closePanel();
+  setTools({ color: state.palette[index] });
+}
+
 /** Placing, undoing, erasing or clearing a badge on any screen moves the shared count. */
 function syncNextNumber(): void {
   const next = nextBadgeNumber(highestNumbers.values());
@@ -126,7 +150,7 @@ function apply(action: Action): void {
     case "cycle-shape":
       return pickTool("shape");
     case "color":
-      return setTools({ color: COLORS[action.index] });
+      return pickSwatch(action.index);
     case "size":
       return setTools({ size: Math.min(2, Math.max(0, state.tools.size + action.delta)) as SizeIndex });
     case "undo":
@@ -136,7 +160,58 @@ function apply(action: Action): void {
     case "clear":
       return clear();
     case "exit":
+      // Esc closes the color panel first; the next one stops drawing.
+      if (panel) return closePanel();
       return setTools({ tool: "pointer" });
+  }
+}
+
+// ── Color panel: a window of its own beside the toolbar (src/panel/) ─────────
+
+const samePanel = (a: PanelTarget, b: PanelTarget) =>
+  a.kind === "swatch" ? b.kind === "swatch" && a.index === b.index : b.kind === "custom";
+
+/**
+ * Opens the panel beside `opener` to edit a swatch or pick any color, or closes it if it's
+ * already showing that. What it edits becomes the current color right away.
+ */
+function togglePanel(target: PanelTarget, opener: HTMLElement): void {
+  if (panel && samePanel(panel, target)) return closePanel();
+  if (!frame) return;
+  const color = target.kind === "swatch" ? state.palette[target.index] : (state.customColor ?? state.tools.color);
+  panel = target;
+  if (target.kind === "custom") state.customColor = color;
+  setTools({ color });
+  const r = opener.getBoundingClientRect();
+  const s = nativeScale();
+  void emitTo<PanelOpen>(PANEL_LABEL, PANEL_OPEN, {
+    title: target.kind === "swatch" ? `${t.color} ${target.index + 1}` : t.customColor,
+    color,
+    original: target.kind === "swatch" ? COLORS[target.index] : null,
+    anchor: { x: frame.x + r.left * s, y: frame.y + r.top * s, width: r.width * s, height: r.height * s },
+    bar: frame,
+    orientation: state.layout.orientation,
+    hideFromCapture: state.layout.hideFromCapture,
+  });
+}
+
+function closePanel(): void {
+  if (!panel) return;
+  panel = null;
+  void emitTo(PANEL_LABEL, PANEL_CLOSE);
+  render();
+}
+
+/** Puts the six original colors back; a changed swatch in use gives way to its original. */
+function resetPalette(): void {
+  const i = state.palette.indexOf(state.tools.color);
+  state.palette = [...COLORS];
+  closePanel();
+  if (i >= 0) {
+    setTools({ color: COLORS[i] });
+  } else {
+    save(state);
+    render();
   }
 }
 
@@ -233,6 +308,7 @@ function startDrag(e: PointerEvent): void {
     const dx = (ev.screenX - start.x) * s;
     const dy = (ev.screenY - start.y) * s;
     if (!moved && Math.hypot(dx, dy) < 4 * s) return;
+    if (!moved) closePanel();
     moved = dragging = true;
     bar.classList.add("dragging");
     next = { ...origin, x: origin.x + dx, y: origin.y + dy };
@@ -272,18 +348,21 @@ function startDrag(e: PointerEvent): void {
 }
 
 function toggleCollapsed(): void {
+  closePanel();
   state.layout.collapsed = !state.layout.collapsed;
   save(state);
   render();
 }
 
 function setOrientation(orientation: Orientation): void {
+  closePanel();
   state.layout.orientation = orientation;
   render();
   void relayout(true, "center");
 }
 
 function setEdge(edge: Edge): void {
+  closePanel();
   state.layout.edge = edge;
   if (edge === "left" || edge === "right") state.layout.orientation = "vertical";
   if (edge === "top" || edge === "bottom") state.layout.orientation = "horizontal";
@@ -298,6 +377,7 @@ async function setVisible(show: boolean): Promise<void> {
     await win.show();
   } else {
     // A hidden toolbar can't take you out of drawing mode, so leave it first.
+    closePanel();
     if (isDrawTool(state.tools.tool)) setTools({ tool: "pointer" });
     await win.hide();
   }
@@ -310,9 +390,11 @@ async function more(): Promise<void> {
     layout: state.layout,
     tools: state.tools,
     canRedo: redoStack.length > 0,
+    paletteChanged: state.palette.some((c, i) => c !== COLORS[i]),
     setOrientation,
     setEdge,
     redo,
+    resetPalette,
     toggleInk: () => setTools({ inkHidden: !state.tools.inkHidden }),
     toggleCapture: () => {
       state.layout.hideFromCapture = !state.layout.hideFromCapture;
@@ -378,9 +460,20 @@ void win.listen<string>(CANVAS_CLOSED, ({ payload: label }) => {
   }
   render();
 });
+void win.listen(CANVAS_TOUCHED, closePanel);
+void win.listen<string>(PANEL_PICK, ({ payload: color }) => {
+  if (!panel || !isHexColor(color)) return;
+  if (panel.kind === "swatch") state.palette[panel.index] = color;
+  else state.customColor = color;
+  setTools({ color });
+});
+void win.listen(PANEL_DISMISSED, () => {
+  panel = null;
+  render();
+});
 void win.listen<Action>(REQUEST, ({ payload }) => apply(payload));
 void win.listen(TOGGLE_DRAW, () => onTray("toggle-draw"));
-void win.listen(EXIT_DRAW, () => setTools({ tool: "pointer" }));
+void win.listen(EXIT_DRAW, () => apply({ type: "exit" }));
 void win.listen<string>(TRAY, ({ payload }) => onTray(payload));
 void win.listen(REVEAL, () => setVisible(true));
 
@@ -397,4 +490,4 @@ async function start(): Promise<void> {
 void start();
 
 // Browser preview (dev/): lets the harness flip what the native menu would.
-if (import.meta.env.DEV) Object.assign(window, { trazo: { setEdge, setOrientation, state } });
+if (import.meta.env.DEV) Object.assign(window, { trazo: { setEdge, setOrientation, resetPalette, state } });

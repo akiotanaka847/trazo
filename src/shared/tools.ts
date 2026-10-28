@@ -1,19 +1,29 @@
-export type Tool = "pointer" | "pen" | "highlighter" | "laser" | "shape" | "number" | "eraser";
+export type Tool = "pointer" | "pen" | "highlighter" | "laser" | "shape" | "number" | "recolor" | "eraser";
 export type DrawTool = Exclude<Tool, "pointer">;
 export type ShapeKind = "arrow" | "rect" | "ellipse" | "line";
 export type SizeIndex = 0 | 1 | 2;
 
-export const TOOLS: readonly Tool[] = ["pointer", "pen", "highlighter", "laser", "shape", "number", "eraser"];
+export const TOOLS: readonly Tool[] = ["pointer", "pen", "highlighter", "laser", "shape", "number", "recolor", "eraser"];
 export const SHAPES: readonly ShapeKind[] = ["arrow", "rect", "ellipse", "line"];
+/** The palette's original six colors; each swatch can be changed and keeps its key (1 to 6). */
 export const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#1c1c1e", "#ffffff"] as const;
+/** Suggestions in the color panel, chosen to complement the palette: orange, pink, purple, cyan, brown, gray. */
+export const MORE_COLORS = ["#ff9500", "#ff2d55", "#af52de", "#5ac8fa", "#a2845e", "#8e8e93"] as const;
 
-/** Stroke width in CSS pixels for the thin / medium / thick setting of each tool (badge diameter for numbers). */
+export const isHexColor = (value: unknown): value is string =>
+  typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+
+/**
+ * Stroke width in CSS pixels for the thin / medium / thick setting of each tool (badge
+ * diameter for numbers, brush diameter for the eraser and recolor).
+ */
 const WIDTHS: Record<DrawTool, readonly [number, number, number]> = {
   pen: [3, 6, 12],
   highlighter: [16, 26, 40],
   laser: [6, 9, 14],
   shape: [3, 5, 9],
   number: [20, 26, 34],
+  recolor: [10, 20, 36],
   eraser: [16, 32, 64],
 };
 
@@ -30,9 +40,9 @@ export interface ToolState {
 
 export const isDrawTool = (tool: Tool): tool is DrawTool => tool !== "pointer";
 
-/** Tools that put color on screen; the draw toggle resumes the last one (never the eraser). */
-export type InkTool = Exclude<DrawTool, "eraser">;
-export const isInkTool = (tool: Tool): tool is InkTool => isDrawTool(tool) && tool !== "eraser";
+/** Tools that put new color on screen; the draw toggle resumes the last one (never an editing tool). */
+export type InkTool = Exclude<DrawTool, "eraser" | "recolor">;
+export const isInkTool = (tool: Tool): tool is InkTool => isDrawTool(tool) && tool !== "eraser" && tool !== "recolor";
 
 export function widthOf(tool: Tool, size: SizeIndex): number {
   return WIDTHS[isDrawTool(tool) ? tool : "pen"][size];

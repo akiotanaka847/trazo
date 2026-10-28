@@ -1,6 +1,6 @@
 # Trazo
 
-Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compacta que se pega al borde que elijas (vertical u horizontal), lápiz con presión, resaltador, puntero láser, flechas y formas, y un modo puntero que deja tus trazos visibles mientras sigues usando las apps de abajo.
+Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compacta que se pega al borde que elijas (vertical u horizontal), lápiz con presión, resaltador, puntero láser, flechas y formas, números, cualquier color, y un modo puntero que deja tus trazos visibles mientras sigues usando las apps de abajo.
 
 ## Qué hace
 
@@ -10,8 +10,10 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 | Barra contraíble | Un clic en el asa la reduce a un botón de "dibujar / soltar" |
 | Lápiz y resaltador | Trazos suaves que se afinan con la velocidad; presión real con tableta o lápiz digital |
 | Puntero láser | Estela brillante que sigue al ratón y se desvanece sola; nunca queda como tinta |
-| Formas | Flecha, rectángulo, elipse y línea (clic otra vez en Formas para cambiar). Mayús: ángulos de 15°, cuadrados y círculos |
+| Formas | Al elegir Formas se despliegan flecha, rectángulo, elipse y línea; al cambiar de herramienta se pliegan. Mayús: ángulos de 15°, cuadrados y círculos |
 | Números | Cada clic pone el siguiente: 1, 2, 3… con el color y el tamaño elegidos. El botón muestra qué número sigue; deshacer lo devuelve y borrar todo vuelve a 1 |
+| Recolorear | Toca o arrastra sobre un trazo, una forma o un número para darle el color elegido. Solo cambia lo que está encima (la tinta, no el resaltado de abajo) y se deshace en un paso |
+| Colores | Doble clic o clic derecho en un color de la paleta para cambiarlo: queda guardado y sigue en su tecla. El arcoíris abre el mismo panel para usar cualquier color. ⋯ → Restablecer colores vuelve a los originales |
 | Borrador | Quita trazos completos; el borrador trasero de un lápiz digital también borra |
 | Modo puntero | Los trazos quedan a la vista y los clics pasan a las apps de abajo |
 | Varios monitores | Un lienzo por pantalla; deshacer sigue el orden real entre pantallas |
@@ -23,10 +25,10 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 | Tecla | Acción |
 |---|---|
 | ⌃⌥D (Ctrl+Alt+D en Windows) | Dibujar / soltar, desde cualquier app |
-| Esc | Volver al modo puntero |
-| V · P · H · L · N · E | Puntero · lápiz · resaltador · láser · números · borrador |
+| Esc | Cerrar el panel de color; si no está abierto, volver al modo puntero |
+| V · P · H · L · N · C · E | Puntero · lápiz · resaltador · láser · números · recolorear · borrador |
 | A · R · O · S | Flecha · rectángulo · elipse · siguiente forma |
-| 1 a 6 | Rojo, amarillo, verde, azul, negro, blanco |
+| 1 a 6 | Los seis colores de la paleta (al principio rojo, amarillo, verde, azul, negro y blanco) |
 | [ · ] | Más fino · más grueso |
 | ⌘Z · ⇧⌘Z (Ctrl en Windows) | Deshacer · rehacer |
 | ⌫ / Supr | Borrar todo (se puede deshacer) |
@@ -88,6 +90,7 @@ cargo check --manifest-path src-tauri/Cargo.toml
 | Ventanas, monitores y foco (Rust) | `src-tauri/src/overlay.rs`, `focus.rs`, `macos.rs` |
 | Atajo global y bandeja (Rust) | `src-tauri/src/shortcuts.rs`, `tray.rs` |
 | Barra: estado, acoplamiento, vista, menú | `src/toolbar/` |
+| Panel de color | `src/panel/` |
 | Lienzo: trazos, historial, láser, cursor | `src/canvas/` |
 | Mensajes entre ventanas | `src/shared/protocol.ts` |
 

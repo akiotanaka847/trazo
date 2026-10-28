@@ -9,9 +9,11 @@ export interface MoreMenu {
   layout: Layout;
   tools: ToolState;
   canRedo: boolean;
+  paletteChanged: boolean;
   setOrientation(orientation: Orientation): void;
   setEdge(edge: Edge): void;
   redo(): void;
+  resetPalette(): void;
   toggleInk(): void;
   toggleCapture(): void;
   quit(): void;
@@ -46,6 +48,7 @@ export async function openMoreMenu(m: MoreMenu): Promise<void> {
       position,
       await separator(),
       await MenuItem.new({ text: t.redo, enabled: m.canRedo, action: m.redo }),
+      await MenuItem.new({ text: t.resetPalette, enabled: m.paletteChanged, action: m.resetPalette }),
       await check(t.hideInk, m.tools.inkHidden, m.toggleInk),
       await check(t.hideFromCapture, m.layout.hideFromCapture, m.toggleCapture),
       await separator(),
