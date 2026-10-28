@@ -32,6 +32,20 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 
 Las teclas de herramienta funcionan mientras dibujas. El icono de la barra de menús (bandeja del sistema en Windows) también permite dibujar, ocultar la barra o los trazos, borrar y salir.
 
+## Instaladores
+
+Cada cambio en `main` compila Trazo en GitHub Actions. En la pestaña **Actions**, abre la última ejecución de **build** y baja sus artefactos:
+
+| Artefacto | Contenido |
+|---|---|
+| `trazo-macos` | `.dmg` universal (Apple Silicon e Intel) |
+| `trazo-windows` | Instalador `.msi` y `-setup.exe` |
+
+Los instaladores no llevan firma de desarrollador:
+
+- **macOS:** la primera vez abre Trazo con clic derecho → Abrir, o en Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente.
+- **Windows:** si SmartScreen avisa, Más información → Ejecutar de todas formas.
+
 ## Desarrollo
 
 Requisitos: [Rust](https://rustup.rs), Node 20+ y pnpm. En macOS bastan las Command Line Tools de Xcode.

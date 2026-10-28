@@ -1,0 +1,74 @@
+name: build
+
+# Builds the installers on every change to the app and keeps them as run artifacts.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "implementation/**", "LICENSE"]
+  pull_request:
+    paths-ignore: ["**.md", "implementation/**", "LICENSE"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push makes the build in progress for the same branch pointless.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installers:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos
+            os: macos-latest
+            # Universal binary: one .dmg for both Apple Silicon and Intel Macs.
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            build-args: --target universal-apple-darwin
+            installers: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          - name: windows
+            os: windows-latest
+            rust-targets: ""
+            build-args: ""
+            installers: |
+              src-tauri/target/release/bundle/msi/*.msi
+              src-tauri/target/release/bundle/nsis/*.exe
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.0.8
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build installers
+        shell: bash
+        env:
+          BUILD_ARGS: ${{ matrix.build-args }}
+        # Unquoted on purpose: empty on Windows, two words on macOS.
+        run: pnpm tauri build $BUILD_ARGS
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: trazo-${{ matrix.name }}
+          path: ${{ matrix.installers }}
+          if-no-files-found: error
