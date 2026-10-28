@@ -8,6 +8,14 @@ use tauri::{AppHandle, Emitter};
 
 use crate::overlay::TOOLBAR;
 
+/// macOS paints a template image in the menu bar's own color (white when dark, black when
+/// light). Windows draws tray pixels as they are, so a black glyph would vanish on its dark
+/// taskbar: it gets the color app icon instead.
+#[cfg(target_os = "macos")]
+const TRAY_ICON: &[u8] = include_bytes!("../icons/tray.png");
+#[cfg(not(target_os = "macos"))]
+const TRAY_ICON: &[u8] = include_bytes!("../icons/32x32.png");
+
 struct Labels {
     draw: &'static str,
     toolbar: &'static str,
@@ -52,8 +60,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
     TrayIconBuilder::with_id("trazo")
-        .icon(Image::from_bytes(include_bytes!("../icons/tray.png"))?)
-        .icon_as_template(true)
+        .icon(Image::from_bytes(TRAY_ICON)?)
+        .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("Trazo")
         .menu(&menu)
         .show_menu_on_left_click(true)
