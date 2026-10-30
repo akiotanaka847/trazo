@@ -21,3 +21,18 @@ canvas {
 .ink-hidden #ink {
   visibility: hidden;
 }
+
+/* The box a text is typed in: borderless and see-through, styled from main.ts to match the painted text. */
+.text-editor {
+  position: fixed;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+}

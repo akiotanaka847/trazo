@@ -10,7 +10,8 @@ export interface Recolor {
 type Entry =
   | { type: "add"; stroke: Stroke }
   | { type: "remove"; removed: { stroke: Stroke; index: number }[] }
-  | { type: "recolor"; changes: Recolor[] };
+  | { type: "recolor"; changes: Recolor[] }
+  | { type: "replace"; index: number; from: Stroke; to: Stroke };
 
 /** The strokes on one canvas plus their undo/redo history. */
 export class Drawing {
@@ -41,6 +42,16 @@ export class Drawing {
     if (real.length === 0) return false;
     this.apply({ type: "recolor", changes: real });
     this.record({ type: "recolor", changes: real });
+    return true;
+  }
+
+  /** Swaps a stroke for its edited version in place, as a single undoable step. */
+  replace(from: Stroke, to: Stroke): boolean {
+    const index = this.strokes.indexOf(from);
+    if (index < 0) return false;
+    const entry: Entry = { type: "replace", index, from, to };
+    this.apply(entry);
+    this.record(entry);
     return true;
   }
 
@@ -83,6 +94,9 @@ export class Drawing {
       case "recolor":
         for (const c of entry.changes) c.stroke.color = c.to;
         break;
+      case "replace":
+        this.strokes[entry.index] = entry.to;
+        break;
     }
   }
 
@@ -97,6 +111,9 @@ export class Drawing {
         break;
       case "recolor":
         for (const c of entry.changes) c.stroke.color = c.from;
+        break;
+      case "replace":
+        this.strokes[entry.index] = entry.from;
         break;
     }
   }

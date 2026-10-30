@@ -43,7 +43,14 @@ export interface BadgeStroke extends Base {
   center: Point;
 }
 
-export type Stroke = InkStroke | ShapeStroke | BadgeStroke;
+/** Typed text; `at` is the top-left corner of its first line and `width` its font size. */
+export interface TextStroke extends Base {
+  kind: "text";
+  text: string;
+  at: Point;
+}
+
+export type Stroke = InkStroke | ShapeStroke | BadgeStroke | TextStroke;
 
 const HIGHLIGHTER_ALPHA = 0.38;
 
@@ -195,11 +202,52 @@ function drawBadge(ctx: CanvasRenderingContext2D, s: BadgeStroke): void {
   ctx.fillText(label, x, y + r * 0.07);
 }
 
+/** Font shared by the painted text and the box it is typed in, so saving never shifts it. */
+export const textFont = (size: number) => `600 ${size}px -apple-system, "Segoe UI", system-ui, sans-serif`;
+export const lineHeight = (size: number) => Math.round(size * 1.25);
+/** A halo in the opposite tone (dark around yellow, white around red) keeps text readable anywhere. */
+export const textHalo = (color: string) => (textOn(color) === "#ffffff" ? "rgba(255, 255, 255, 0.9)" : "rgba(0, 0, 0, 0.55)");
+const haloWidth = (size: number) => Math.max(2, size * 0.16);
+
+/** The widest line of `text` in CSS pixels. */
+export function measureText(text: string, size: number): number {
+  probe.font = textFont(size);
+  return Math.max(0, ...text.split("\n").map((line) => probe.measureText(line).width));
+}
+
+export function buildText(text: string, color: string, size: number, at: Point): TextStroke {
+  const pad = haloWidth(size) / 2;
+  const lines = text.split("\n").length;
+  const box = {
+    minX: at.x - pad,
+    minY: at.y - pad,
+    maxX: at.x + measureText(text, size) + pad,
+    maxY: at.y + lines * lineHeight(size) + pad,
+  };
+  return { kind: "text", text, color, width: size, at, box };
+}
+
+function drawText(ctx: CanvasRenderingContext2D, s: TextStroke): void {
+  const lh = lineHeight(s.width);
+  ctx.font = textFont(s.width);
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = haloWidth(s.width);
+  ctx.strokeStyle = textHalo(s.color);
+  s.text.split("\n").forEach((line, i) => {
+    const y = s.at.y + i * lh + lh / 2;
+    ctx.strokeText(line, s.at.x, y);
+    ctx.fillText(line, s.at.x, y);
+  });
+}
+
 export function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
   ctx.save();
   ctx.fillStyle = s.color;
   if (s.kind === "badge") {
     drawBadge(ctx, s);
+  } else if (s.kind === "text") {
+    drawText(ctx, s);
   } else if (s.kind === "ink") {
     if (s.tool === "highlighter") ctx.globalAlpha = HIGHLIGHTER_ALPHA;
     ctx.fill(s.outline);
@@ -231,6 +279,8 @@ export function hits(s: Stroke, p: Point, radius: number): boolean {
   if (s.kind === "badge") {
     return Math.hypot(p.x - s.center.x, p.y - s.center.y) <= s.width / 2 + 2 + radius;
   }
+  if (s.kind === "text") return true; // inside its box, which already counts the radius
+
   probe.lineCap = "round";
   probe.lineJoin = "round";
   if (s.kind === "ink") {
