@@ -42,6 +42,8 @@ export function cursorFor(tools: ToolState): string {
     case "shape":
     case "number":
       return "crosshair";
+    case "text":
+      return "text";
     case "eraser":
       return ring(width);
     case "recolor":

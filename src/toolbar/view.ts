@@ -15,6 +15,7 @@ import {
   Slash,
   Square,
   Trash2,
+  Type,
   Undo2,
   type IconNode,
 } from "lucide";
@@ -57,6 +58,7 @@ const TOOL_ICONS: Record<Exclude<Tool, "shape" | "number">, IconNode> = {
   pen: Pen,
   highlighter: Highlighter,
   laser: CircleDot,
+  text: Type,
   recolor: PaintBucket,
   eraser: Eraser,
 };
@@ -68,9 +70,9 @@ const SHAPE_ICONS: Record<ShapeKind, IconNode> = {
 };
 const DOT_SIZES = [4, 7, 11];
 /** Tools that use the current color, so they show it under their icon. */
-const INKED: ReadonlySet<Tool> = new Set(["pen", "highlighter", "laser", "shape", "recolor"]);
+const INKED: ReadonlySet<Tool> = new Set(["pen", "highlighter", "laser", "shape", "text", "recolor"]);
 /** What a tool does when its icon alone can't say it. */
-const HINTS: Partial<Record<Tool, string>> = { shape: t.shapeHint, number: t.numberHint, recolor: t.recolorHint };
+const HINTS: Partial<Record<Tool, string>> = { shape: t.shapeHint, text: t.textHint, number: t.numberHint, recolor: t.recolorHint };
 
 const iconFor = (tool: Exclude<Tool, "number">, shape: ShapeKind) =>
   tool === "shape" ? SHAPE_ICONS[shape] : TOOL_ICONS[tool];

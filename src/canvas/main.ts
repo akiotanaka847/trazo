@@ -18,7 +18,22 @@ import { COLORS, nextBadgeNumber, widthOf, type ToolState } from "../shared/tool
 import { cursorFor } from "./cursor";
 import { Drawing } from "./history";
 import { LaserTrail } from "./laser";
-import { buildBadge, buildInk, buildShape, drawStroke, hits, type Point, type Sample, type Stroke } from "./strokes";
+import {
+  buildBadge,
+  buildInk,
+  buildShape,
+  buildText,
+  drawStroke,
+  hits,
+  lineHeight,
+  measureText,
+  textFont,
+  textHalo,
+  type Point,
+  type Sample,
+  type Stroke,
+  type TextStroke,
+} from "./strokes";
 
 const win = getCurrentWebviewWindow();
 const label = win.label;
@@ -39,7 +54,8 @@ type Gesture =
   | { kind: "shape"; from: Point; to: Point; shift: boolean }
   | { kind: "erase"; last: Point; hit: Set<Stroke> }
   | { kind: "recolor"; last: Point; before: Map<Stroke, string> }
-  | { kind: "badge"; at: Point };
+  | { kind: "badge"; at: Point }
+  | { kind: "place"; at: Point };
 let gesture: Gesture | null = null;
 
 const width = () => widthOf(tools.tool, tools.size);
@@ -125,6 +141,98 @@ function recorded(): void {
   report();
 }
 
+// ── Text ─────────────────────────────────────────────────────────────────────
+
+/** The open text box, and the text stroke it is editing (null for a new text). */
+let editor: { box: HTMLTextAreaElement; at: Point; color: string; size: number; editing: TextStroke | null } | null =
+  null;
+
+function fitEditor(): void {
+  if (!editor) return;
+  const { box, size } = editor;
+  const lines = box.value.split("\n").length;
+  box.style.width = `${Math.ceil(measureText(box.value, size) + size)}px`; // room for the caret
+  box.style.height = `${lines * lineHeight(size)}px`;
+}
+
+/** Opens a text box at `at`, or over `editing` to change it; the painted copy hides meanwhile. */
+function openEditor(at: Point, editing: TextStroke | null): void {
+  const color = editing?.color ?? tools.color;
+  const size = editing?.width ?? width();
+  const box = document.createElement("textarea");
+  box.className = "text-editor";
+  box.spellcheck = false;
+  box.value = editing?.text ?? "";
+  Object.assign(box.style, {
+    left: `${at.x}px`,
+    top: `${at.y}px`,
+    font: textFont(size),
+    lineHeight: `${lineHeight(size)}px`,
+    color,
+    caretColor: color,
+    textShadow: `0 0 2px ${textHalo(color)}, 0 0 2px ${textHalo(color)}`,
+  });
+  box.addEventListener("input", fitEditor);
+  box.addEventListener("keydown", onEditorKey);
+  box.addEventListener("blur", () => {
+    if (editor?.box === box) closeEditor(true);
+  });
+  editor = { box, at, color, size, editing };
+  document.body.append(box);
+  fitEditor();
+  if (editing) repaint(new Set([editing]));
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
+}
+
+/** Saves (or, with `save` false, drops) what was typed as one undoable step. */
+function closeEditor(save: boolean): void {
+  const e = editor;
+  if (!e) return;
+  editor = null;
+  e.box.remove();
+  const text = e.box.value;
+  const empty = text.trim() === "";
+  const old = e.editing;
+  let changed = false;
+  if (save && old) {
+    if (empty) changed = drawing.remove([old]);
+    else if (text !== old.text) changed = drawing.replace(old, buildText(text, e.color, e.size, e.at));
+  } else if (save && !empty) {
+    drawing.add(buildText(text, e.color, e.size, e.at));
+    changed = true;
+  }
+  repaint();
+  if (changed) recorded();
+}
+
+/** Enter saves, ⌘/Ctrl+Enter starts a new line, Esc cancels; other keys type instead of picking tools. */
+function onEditorKey(e: KeyboardEvent): void {
+  e.stopPropagation();
+  if (e.isComposing) return; // Enter that confirms an accent or IME candidate
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeEditor(false);
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    if (e.metaKey || e.ctrlKey) {
+      editor?.box.setRangeText("\n", editor.box.selectionStart, editor.box.selectionEnd, "end");
+      fitEditor();
+    } else {
+      closeEditor(true);
+    }
+  }
+}
+
+/** The topmost text under `p`, to edit it instead of starting a new one. */
+function textAt(p: Point): TextStroke | null {
+  for (let i = drawing.strokes.length - 1; i >= 0; i--) {
+    const s = drawing.strokes[i];
+    if (s.kind === "text" && hits(s, p, 0)) return s;
+  }
+  return null;
+}
+
 // ── Input ────────────────────────────────────────────────────────────────────
 
 const pointOf = (e: PointerEvent): Point => ({ x: e.clientX, y: e.clientY });
@@ -191,6 +299,14 @@ function finish(): void {
     const changes = [...g.before].map(([stroke, from]) => ({ stroke, from, to: stroke.color }));
     if (drawing.recolor(changes)) recorded();
   } else {
+    if (g.kind === "place") {
+      // Opened on release, once the click's own focus change is over, so the box keeps focus.
+      if (tools.tool === "text") {
+        const old = textAt(g.at);
+        openEditor(old?.at ?? { x: g.at.x, y: g.at.y - lineHeight(width()) / 2 }, old);
+      }
+      return requestFrame();
+    }
     const tooSmall = g.kind === "shape" && Math.hypot(g.to.x - g.from.x, g.to.y - g.from.y) < 3;
     const stroke = strokeFor(g, true);
     if (stroke && !tooSmall) {
@@ -206,6 +322,11 @@ liveCanvas.addEventListener("pointerdown", (e) => {
   // The barrel/back eraser of a stylus erases whatever tool is selected.
   const stylusEraser = e.pointerType === "pen" && (e.button === 5 || (e.buttons & 32) !== 0);
   if (tools.tool === "pointer" || (e.button !== 0 && !stylusEraser)) return;
+  if (editor) {
+    // A click away from the open text saves it; the next click starts another one.
+    closeEditor(true);
+    if (tools.tool === "text") return;
+  }
   liveCanvas.setPointerCapture(e.pointerId);
   void emitTo(TOOLBAR_LABEL, CANVAS_TOUCHED, label);
   const p = pointOf(e);
@@ -219,6 +340,8 @@ liveCanvas.addEventListener("pointerdown", (e) => {
     gesture = { kind: "ink", tool: tools.tool, samples: [[p.x, p.y, pressureOf(e)]], pressure: e.pointerType === "pen" };
   } else if (tools.tool === "shape") {
     gesture = { kind: "shape", from: p, to: p, shift: e.shiftKey };
+  } else if (tools.tool === "text") {
+    gesture = { kind: "place", at: p };
   } else if (tools.tool === "number") {
     // Follows the pointer until release, so it can be nudged into place.
     gesture = { kind: "badge", at: p };
@@ -241,7 +364,7 @@ liveCanvas.addEventListener("pointermove", (e) => {
     g.shift = e.shiftKey;
   } else if (g.kind === "badge") {
     g.at = pointOf(e);
-  } else {
+  } else if (g.kind !== "place") {
     for (const s of samplesOf(e)) {
       const p = pointOf(s);
       if (g.kind === "erase") eraseAlong(g, g.last, p);
@@ -257,6 +380,7 @@ liveCanvas.addEventListener("pointercancel", finish);
 window.addEventListener("contextmenu", (e) => e.preventDefault());
 
 window.addEventListener("keydown", (e) => {
+  if (editor) return; // the text box handles its own keys
   if (e.key === "Shift" && gesture?.kind === "shape") {
     gesture.shift = true;
     return requestFrame();
@@ -278,6 +402,7 @@ window.addEventListener("keyup", (e) => {
 
 void win.listen<ToolState>(TOOL_STATE, ({ payload }) => {
   if (gesture && payload.tool !== tools.tool) finish();
+  if (editor && payload.tool !== "text") closeEditor(true);
   tools = payload;
   document.body.classList.toggle("ink-hidden", tools.inkHidden);
   document.body.style.cursor = cursorFor(tools);
@@ -285,6 +410,8 @@ void win.listen<ToolState>(TOOL_STATE, ({ payload }) => {
 });
 
 void win.listen<CanvasCommand>(CANVAS_COMMAND, ({ payload }) => {
+  // Undo, redo or clear from the toolbar act on the text as typed so far.
+  if (payload.type !== "drop-redo") closeEditor(true);
   switch (payload.type) {
     case "undo":
     case "redo":
