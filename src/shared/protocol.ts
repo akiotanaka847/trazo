@@ -11,7 +11,12 @@ export const PANEL_LABEL = "panel";
 // Toolbar → canvases
 export const TOOL_STATE = "tool-state"; // ToolState, broadcast
 export const CANVAS_COMMAND = "canvas-command"; // CanvasCommand, broadcast or to one canvas
-export type CanvasCommand = { type: "undo" } | { type: "redo" } | { type: "clear" } | { type: "drop-redo" };
+export type CanvasCommand =
+  | { type: "undo" }
+  | { type: "redo" }
+  | { type: "clear" }
+  | { type: "drop-redo" }
+  | { type: "cancel-text" }; // drop the text being typed, as Esc
 
 // Canvases → toolbar
 export const CANVAS_READY = "canvas-ready"; // label
@@ -24,6 +29,8 @@ export interface CanvasStatus {
   strokes: number;
   /** Highest numbered badge on that screen, 0 when there are none. */
   highestNumber: number;
+  /** A text box is open there: Esc and Undo cancel it before anything else. */
+  typing: boolean;
 }
 
 // Toolbar → color panel

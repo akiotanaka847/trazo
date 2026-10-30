@@ -11,7 +11,7 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 | Lápiz y resaltador | Trazos suaves que se afinan con la velocidad; presión real con tableta o lápiz digital |
 | Puntero láser | Estela brillante que sigue al ratón y se desvanece sola; nunca queda como tinta |
 | Formas | Al elegir Formas se despliegan flecha, rectángulo, elipse y línea; al cambiar de herramienta se pliegan. Mayús: ángulos de 15°, cuadrados y círculos |
-| Texto | Clic para escribir con el color y el tamaño elegidos. Enter guarda, ⌘Enter (Ctrl+Enter en Windows) pasa a otra línea, Esc cancela y un clic fuera también guarda. Clic en un texto para editarlo; deshacer devuelve la versión anterior |
+| Texto | Clic para escribir con el color y el tamaño elegidos; si los cambias mientras escribes, el texto los toma. Enter guarda, ⌘Enter (Ctrl+Enter en Windows) pasa a otra línea, Esc o Deshacer cancelan y un clic fuera también guarda. Clic en un texto para editarlo; deshacer devuelve la versión anterior |
 | Números | Cada clic pone el siguiente: 1, 2, 3… con el color y el tamaño elegidos. El botón muestra qué número sigue; deshacer lo devuelve y borrar todo vuelve a 1 |
 | Recolorear | Toca o arrastra sobre un trazo, una forma o un número para darle el color elegido. Solo cambia lo que está encima (la tinta, no el resaltado de abajo) y se deshace en un paso |
 | Colores | Doble clic o clic derecho en un color de la paleta para cambiarlo: queda guardado y sigue en su tecla. El arcoíris abre el mismo panel para usar cualquier color. ⋯ → Restablecer colores vuelve a los originales |
@@ -26,7 +26,7 @@ Dibuja y anota sobre cualquier pantalla, en **macOS y Windows**. Una barra compa
 | Tecla | Acción |
 |---|---|
 | ⌃⌥D (Ctrl+Alt+D en Windows) | Dibujar / soltar, desde cualquier app |
-| Esc | Cerrar el panel de color; si no está abierto, volver al modo puntero |
+| Esc | Cerrar el panel de color o cancelar el texto que escribes; si no hay nada abierto, volver al modo puntero |
 | V · P · H · L · T · N · C · E | Puntero · lápiz · resaltador · láser · texto · números · recolorear · borrador |
 | A · R · O · S | Flecha · rectángulo · elipse · siguiente forma |
 | 1 a 6 | Los seis colores de la paleta (al principio rojo, amarillo, verde, azul, negro y blanco) |

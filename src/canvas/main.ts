@@ -133,6 +133,7 @@ function report(): void {
     label,
     strokes: drawing.strokes.length,
     highestNumber: nextBadgeNumber(numbersOnScreen()) - 1,
+    typing: editor !== null,
   });
 }
 
@@ -155,34 +156,40 @@ function fitEditor(): void {
   box.style.height = `${lines * lineHeight(size)}px`;
 }
 
-/** Opens a text box at `at`, or over `editing` to change it; the painted copy hides meanwhile. */
-function openEditor(at: Point, editing: TextStroke | null): void {
-  const color = editing?.color ?? tools.color;
-  const size = editing?.width ?? width();
-  const box = document.createElement("textarea");
-  box.className = "text-editor";
-  box.spellcheck = false;
-  box.value = editing?.text ?? "";
+/** Gives the box the font, color and halo the text will be painted with. */
+function styleEditor(): void {
+  if (!editor) return;
+  const { box, color, size } = editor;
   Object.assign(box.style, {
-    left: `${at.x}px`,
-    top: `${at.y}px`,
     font: textFont(size),
     lineHeight: `${lineHeight(size)}px`,
     color,
     caretColor: color,
     textShadow: `0 0 2px ${textHalo(color)}, 0 0 2px ${textHalo(color)}`,
   });
+  fitEditor();
+}
+
+/** Opens a text box at `at`, or over `editing` to change it; the painted copy hides meanwhile. */
+function openEditor(at: Point, editing: TextStroke | null): void {
+  const box = document.createElement("textarea");
+  box.className = "text-editor";
+  box.spellcheck = false;
+  box.value = editing?.text ?? "";
+  box.style.left = `${at.x}px`;
+  box.style.top = `${at.y}px`;
   box.addEventListener("input", fitEditor);
   box.addEventListener("keydown", onEditorKey);
   box.addEventListener("blur", () => {
     if (editor?.box === box) closeEditor(true);
   });
-  editor = { box, at, color, size, editing };
+  editor = { box, at, color: editing?.color ?? tools.color, size: editing?.width ?? width(), editing };
   document.body.append(box);
-  fitEditor();
+  styleEditor();
   if (editing) repaint(new Set([editing]));
   box.focus();
   box.setSelectionRange(box.value.length, box.value.length);
+  report();
 }
 
 /** Saves (or, with `save` false, drops) what was typed as one undoable step. */
@@ -196,14 +203,16 @@ function closeEditor(save: boolean): void {
   const old = e.editing;
   let changed = false;
   if (save && old) {
+    const restyled = e.color !== old.color || e.size !== old.width;
     if (empty) changed = drawing.remove([old]);
-    else if (text !== old.text) changed = drawing.replace(old, buildText(text, e.color, e.size, e.at));
+    else if (text !== old.text || restyled) changed = drawing.replace(old, buildText(text, e.color, e.size, e.at));
   } else if (save && !empty) {
     drawing.add(buildText(text, e.color, e.size, e.at));
     changed = true;
   }
   repaint();
   if (changed) recorded();
+  else report();
 }
 
 /** Enter saves, ⌘/Ctrl+Enter starts a new line, Esc cancels; other keys type instead of picking tools. */
@@ -403,6 +412,12 @@ window.addEventListener("keyup", (e) => {
 void win.listen<ToolState>(TOOL_STATE, ({ payload }) => {
   if (gesture && payload.tool !== tools.tool) finish();
   if (editor && payload.tool !== "text") closeEditor(true);
+  // A color or size picked in the toolbar while typing applies to the text in the box.
+  if (editor && (payload.color !== tools.color || payload.size !== tools.size)) {
+    if (payload.color !== tools.color) editor.color = payload.color;
+    if (payload.size !== tools.size) editor.size = widthOf("text", payload.size);
+    styleEditor();
+  }
   tools = payload;
   document.body.classList.toggle("ink-hidden", tools.inkHidden);
   document.body.style.cursor = cursorFor(tools);
@@ -410,8 +425,10 @@ void win.listen<ToolState>(TOOL_STATE, ({ payload }) => {
 });
 
 void win.listen<CanvasCommand>(CANVAS_COMMAND, ({ payload }) => {
-  // Undo, redo or clear from the toolbar act on the text as typed so far.
-  if (payload.type !== "drop-redo") closeEditor(true);
+  // Clear keeps the text typed so far, so Undo brings it back with everything else. Any
+  // other command drops it: the toolbar cancels an open box before it undoes or redoes.
+  if (payload.type === "clear") closeEditor(true);
+  else if (payload.type !== "drop-redo") closeEditor(false);
   switch (payload.type) {
     case "undo":
     case "redo":
@@ -429,6 +446,8 @@ void win.listen<CanvasCommand>(CANVAS_COMMAND, ({ payload }) => {
     case "drop-redo":
       drawing.dropRedo();
       break;
+    case "cancel-text":
+      break; // closed above
   }
 });
 

@@ -82,6 +82,18 @@ El panel se cierra al tocar el lienzo, cambiar de herramienta, elegir otro color
 
 **Evita:** un panel olvidado junto a la barra mientras presentas. La barra no ve los clics fuera de sus ventanas, así que el lienzo avisa cuando empieza un gesto.
 
+## El texto se escribe en un cuadro de texto real
+
+Un clic con Texto abre un `<textarea>` transparente con la misma letra, color y halo con que se pintará; al guardarlo, el texto pasa al lienzo como un trazo más.
+
+**Evita:** reimplementar el cursor, la selección, los acentos y los métodos de entrada (japonés, chino) dibujando letra por letra en el canvas.
+
+## Esc y Deshacer cancelan el texto a medio escribir
+
+Cada lienzo avisa a la barra si tiene un cuadro de texto abierto. Mientras lo hay, Esc y Deshacer le piden que lo descarte, y Rehacer queda desactivado: lo que escribes todavía no es un paso del historial.
+
+**Evita:** que Esc guarde el texto y te saque del modo dibujo de golpe (mientras dibujas, Esc es un atajo global y el cuadro nunca lo recibe), y que deshacer o rehacer con el cuadro abierto desordene el historial entre la barra y el lienzo.
+
 ## Recolorear cambia solo lo de encima
 
 En cada punto que toca el pincel de recolorear, cambia el trazo más alto bajo ese punto; un gesto entero es un solo paso de deshacer.

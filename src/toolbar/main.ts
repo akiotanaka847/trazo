@@ -70,6 +70,8 @@ const redoStack: string[] = [];
 const strokeCounts = new Map<string, number>();
 /** Highest numbered badge on each canvas: numbering runs across every screen. */
 const highestNumbers = new Map<string, number>();
+/** Canvases with a text box open. Typing isn't a history step yet, so Esc and Undo cancel it. */
+const typing = new Set<string>();
 /** What the color panel beside the toolbar is editing, while it's open. */
 let panel: PanelTarget | null = null;
 
@@ -95,7 +97,7 @@ function render(): void {
     customColor: state.customColor,
     panel,
     layout: state.layout,
-    canUndo: undoStack.length > 0,
+    canUndo: undoStack.length > 0 || typing.size > 0,
     hasInk: [...strokeCounts.values()].some((n) => n > 0),
   });
 }
@@ -160,8 +162,10 @@ function apply(action: Action): void {
     case "clear":
       return clear();
     case "exit":
-      // Esc closes the color panel first; the next one stops drawing.
+      // Esc closes the color panel or drops the text being typed first; the next one stops
+      // drawing. (While drawing, Esc is a global shortcut, so a text box never sees it.)
       if (panel) return closePanel();
+      if (typing.size) return cancelText();
       return setTools({ tool: "pointer" });
   }
 }
@@ -221,7 +225,12 @@ function command(label: string | null, cmd: CanvasCommand): void {
   void (label ? emitTo(label, CANVAS_COMMAND, cmd) : emit(CANVAS_COMMAND, cmd));
 }
 
+function cancelText(): void {
+  command(null, { type: "cancel-text" });
+}
+
 function undo(): void {
+  if (typing.size) return cancelText();
   const label = undoStack.pop();
   if (!label) return;
   redoStack.push(label);
@@ -230,6 +239,7 @@ function undo(): void {
 }
 
 function redo(): void {
+  if (typing.size) return; // the text being typed is a new action: nothing is left to redo
   const label = redoStack.pop();
   if (!label) return;
   undoStack.push(label);
@@ -389,7 +399,7 @@ async function more(): Promise<void> {
   await openMoreMenu({
     layout: state.layout,
     tools: state.tools,
-    canRedo: redoStack.length > 0,
+    canRedo: redoStack.length > 0 && typing.size === 0,
     paletteChanged: state.palette.some((c, i) => c !== COLORS[i]),
     setOrientation,
     setEdge,
@@ -448,12 +458,15 @@ void win.listen<string>(HISTORY_PUSH, ({ payload: label }) => {
 void win.listen<CanvasStatus>(CANVAS_STATUS, ({ payload }) => {
   strokeCounts.set(payload.label, payload.strokes);
   highestNumbers.set(payload.label, payload.highestNumber);
+  if (payload.typing) typing.add(payload.label);
+  else typing.delete(payload.label);
   syncNextNumber();
   render();
 });
 void win.listen<string>(CANVAS_CLOSED, ({ payload: label }) => {
   strokeCounts.delete(label);
   highestNumbers.delete(label);
+  typing.delete(label);
   syncNextNumber();
   for (const stack of [undoStack, redoStack]) {
     for (let i = stack.length - 1; i >= 0; i--) if (stack[i] === label) stack.splice(i, 1);
